@@ -64,9 +64,9 @@ const PROJECTS = [
     blurb: { tr: "Canlı operasyon görünümü Orb'a sahip, kendi sunucumda barındırdığım Minecraft ağı.", en: "Self-hosted Minecraft network with Orb — a live operations view." },
   },
   {
-    id: "warspear", no: "02", live: false, title: "Warspear Bot",
+    id: "aispear", no: "02", live: true, href: "/aispear", title: "AISpear",
     tag: { tr: "OTOMASYON", en: "AUTOMATION" },
-    blurb: { tr: "Warspear Online için Telegram'dan kontrol edilen otomasyon.", en: "Telegram-controlled automation for Warspear Online." },
+    blurb: { tr: "Warspear Online için yerel çalışan, lisanslı otomasyon — vision + VLM.", en: "Local, licensed automation for Warspear Online — vision + VLM." },
   },
   {
     id: "lab", no: "03", live: false, title: "The Lab",
@@ -102,13 +102,20 @@ function OrbMark({ size = 96, glow = true, gid = "orb" }) {
 
 /* ============================== PORTFOLIO (light shell) ============================== */
 function ProjectCard({ p, onOpen, lang }) {
+  const router = useRouter();
+  const open = () => {
+    if (p.href) router.push(p.href);
+    else if (p.live) onOpen("case");
+  };
   return (
-    <button onClick={() => p.live && onOpen("case")}
+    <button onClick={open}
       style={{ textAlign: "left", border: `1px solid ${L.line}`, borderRadius: 18, padding: 0, overflow: "hidden",
         background: L.surface, cursor: p.live ? "pointer" : "default", display: "flex", flexDirection: "column" }}>
       <div style={{ height: 150, position: "relative", overflow: "hidden",
         background: p.id === "craftabyss"
           ? "radial-gradient(120% 120% at 30% 20%, #1b1030 0%, #07060b 55%, #1a0508 100%)"
+          : p.id === "aispear"
+          ? "radial-gradient(120% 120% at 30% 20%, #1F1733 0%, #0B0710 55%, #0E0A14 100%)"
           : "linear-gradient(135deg,#ededf0,#f7f7f9)" }}>
         {p.id === "craftabyss" && (
           <>
@@ -116,6 +123,15 @@ function ProjectCard({ p, onOpen, lang }) {
               background: "radial-gradient(40% 60% at 70% 70%, rgba(45,212,191,0.4), transparent), radial-gradient(40% 50% at 25% 30%, rgba(168,85,247,0.45), transparent)" }} />
             <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <img src="/calogo-web.png" alt="CraftAbyss" style={{ width: "100%", height: "100%", objectFit: "contain", padding: "8px 0" }} />
+            </div>
+          </>
+        )}
+        {p.id === "aispear" && (
+          <>
+            <div style={{ position: "absolute", inset: 0, opacity: 0.6,
+              background: "radial-gradient(42% 60% at 72% 72%, rgba(232,176,75,0.38), transparent), radial-gradient(44% 55% at 24% 28%, rgba(124,58,237,0.42), transparent)" }} />
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <img src="/aispear-mark.svg" alt="AISpear" style={{ height: 82, width: "auto", filter: "drop-shadow(0 0 14px rgba(232,176,75,0.5))" }} />
             </div>
           </>
         )}
