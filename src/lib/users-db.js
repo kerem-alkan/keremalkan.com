@@ -87,3 +87,20 @@ export async function getStats() {
     online: await safe("SELECT count(*)::int AS n FROM sessions WHERE online=true AND last_heartbeat > now() - interval '2 minutes'"),
   };
 }
+
+export async function getUserById(id) {
+  return await one(
+    `SELECT u.id, u.username, u.status, u.role_id, COALESCE(r.is_admin,false) AS is_admin
+       FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=$1`,
+    [id]
+  );
+}
+
+export async function roleById(id) {
+  return await one('SELECT id, name, is_admin FROM roles WHERE id=$1', [id]);
+}
+
+export async function countActiveAdmins() {
+  const r = await one("SELECT count(*)::int AS n FROM users u JOIN roles r ON r.id=u.role_id WHERE r.is_admin=true AND u.status='active'");
+  return r ? r.n : 0;
+}

@@ -27,7 +27,7 @@ export default function AISpearLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [next, setNext] = useState("/hub");
+  const [next, setNext] = useState("");
 
   useEffect(() => {
     document.body.style.background = D.bg;
@@ -52,7 +52,7 @@ export default function AISpearLogin() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
-        router.push(next);
+        router.push(next || (data.isAdmin ? "/admin" : "/hub"));
         router.refresh();
       } else {
         setError(data.error || "Giriş başarısız.");

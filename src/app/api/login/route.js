@@ -32,7 +32,7 @@ export async function POST(req) {
   const token = await signSession({ uid: u.id || null, username: u.username, role: u.role, isAdmin: !!u.isAdmin });
   if (u.id) touchLogin(u.id);
 
-  const res = NextResponse.json({ ok: true, user: u.username, role: u.role });
+  const res = NextResponse.json({ ok: true, user: u.username, role: u.role, isAdmin: !!u.isAdmin });
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

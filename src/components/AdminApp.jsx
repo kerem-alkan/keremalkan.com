@@ -148,7 +148,10 @@ export default function AdminApp({ me }) {
         <div style={{ padding: 14, borderTop: `1px solid ${D.line}`, fontSize: 12, color: D.muted }}>
           <div style={{ color: D.ink, fontWeight: 600 }}>{me?.username}</div>
           <div className="m" style={{ fontSize: 10, color: D.gold, letterSpacing: 1 }}>{(me?.role || "admin").toUpperCase()}</div>
-          <a href="/api/logout" className="m" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 10, color: D.muted, textDecoration: "none", fontSize: 12 }}>
+          <a href="/hub" className="m" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 10, color: D.gold, textDecoration: "none", fontSize: 12 }}>
+            ← Üye alanı (Hub)
+          </a>
+          <a href="/api/logout" className="m" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, color: D.muted, textDecoration: "none", fontSize: 12 }}>
             <LogOut size={13} /> ÇIKIŞ
           </a>
         </div>
@@ -240,8 +243,8 @@ export default function AdminApp({ me }) {
                       </select>
                     </div>
                     <div style={{ fontSize: 13, color: u.active_licenses > 0 ? D.green : D.muted }}>{u.active_licenses ?? 0}</div>
-                    <button onClick={() => removeUser(u.id, u.username)} title="Sil"
-                      style={{ background: "none", border: "none", cursor: "pointer", color: D.muted, display: "flex", justifyContent: "center" }}>
+                    <button onClick={() => removeUser(u.id, u.username)} disabled={u.username === me?.username} title={u.username === me?.username ? "Kendini silemezsin" : "Sil"}
+                      style={{ background: "none", border: "none", cursor: u.username === me?.username ? "not-allowed" : "pointer", color: u.username === me?.username ? "#3a3450" : D.muted, display: "flex", justifyContent: "center" }}>
                       <Trash2 size={15} />
                     </button>
                   </div>
