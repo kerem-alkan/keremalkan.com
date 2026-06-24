@@ -415,7 +415,7 @@ function TopBar({ players, lang, setLang, live }) {
 function Ticker({ events }) {
   const t = useT();
   const hi = events.filter((e) => e.sev !== "LOW");
-  const line = (hi.length ? hi : events).map((e) => t.feedTpl[e.tkey](e.p).toUpperCase()).join("      •      ");
+  const line = (hi.length ? hi : events).map((e) => (e.tkey && t.feedTpl[e.tkey] ? t.feedTpl[e.tkey](e.p) : (e.text || "")).toUpperCase()).join("      •      ");
   return (
     <div style={{ display: "flex", alignItems: "center", borderBottom: `1px solid ${C.line}`,
       background: "#0a0710", position: "relative", zIndex: 25, overflow: "hidden" }}>
@@ -619,7 +619,7 @@ function Feed({ feed, setFeed }) {
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 17, fontWeight: 700, color: C.text, lineHeight: 1.25, marginBottom: 8 }}>{t.feedTpl[top.tkey](top.p)}</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: C.text, lineHeight: 1.25, marginBottom: 8 }}>{top.tkey && t.feedTpl[top.tkey] ? t.feedTpl[top.tkey](top.p) : (top.text || "")}</div>
               <span className="mono" style={{ fontSize: 11, color: C.signal, border: `1px solid ${C.signal}44`,
                 background: C.signal + "10", padding: "3px 8px", borderRadius: 5 }}>{t.fd_conf}</span>
             </div>
@@ -636,7 +636,7 @@ function Feed({ feed, setFeed }) {
         <div key={e.id} style={{ border: `1px solid ${e.sev === "HIGH" ? C.ember + "55" : C.line}`,
           borderRadius: 10, padding: 14, marginBottom: 10, background: e.sev === "HIGH" ? "rgba(220,38,38,0.05)" : C.panel }}>
           <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: C.text, lineHeight: 1.3, flex: 1 }}>{t.feedTpl[e.tkey](e.p)}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: C.text, lineHeight: 1.3, flex: 1 }}>{e.tkey && t.feedTpl[e.tkey] ? t.feedTpl[e.tkey](e.p) : (e.text || "")}</div>
             <Sev s={e.sev} />
           </div>
           <div style={{ display: "flex", alignItems: "center", marginTop: 12 }}>
@@ -914,7 +914,8 @@ export default function App() {
   const [delta] = useState(() => ri(-12, 8));
   const [selected, setSelected] = useState(null);
   const [lang, setLang] = useState("tr");
-  const [live, setLive] = useState(false);
+  const [mode, setMode] = useState("demo");
+  const live = mode !== "demo";
   useEffect(() => {
     try { const sv = localStorage.getItem("ka_lang"); if (sv === "tr" || sv === "en") setLang(sv); } catch (e) {}
   }, []);
@@ -939,11 +940,14 @@ export default function App() {
     return () => clearInterval(t);
   }, []);
 
-  // detect a real backend (Pterodactyl env configured) -> flip DEMO to LIVE
+  // pick best data source: orb-agent (full) > pterodactyl (basic) > demo
   useEffect(() => {
     if (booting) return;
     let alive = true;
-    fetch("/api/ptero").then((r) => r.json()).then((j) => { if (alive && j && j.configured) setLive(true); }).catch(() => {});
+    (async () => {
+      try { const o = await fetch("/api/orb").then((r) => r.json()); if (alive && o && o.configured) { setMode("orb"); return; } } catch (e) {}
+      try { const pp = await fetch("/api/ptero").then((r) => r.json()); if (alive && pp && pp.configured) { setMode("basic"); return; } } catch (e) {}
+    })();
     return () => { alive = false; };
   }, [booting]);
 
@@ -977,9 +981,9 @@ export default function App() {
     return () => clearInterval(t);
   }, [booting, live]);
 
-  // LIVE poll — real Pterodactyl + Minecraft ping + RCON/spark (INTEGRATION.md)
+  // BASIC poll — Pterodactyl + Minecraft ping (+ RCON if reachable)
   useEffect(() => {
-    if (booting || !live) return;
+    if (booting || mode !== "basic") return;
     let alive = true;
     const poll = async () => {
       try {
@@ -1011,9 +1015,40 @@ export default function App() {
     return () => { alive = false; clearInterval(id); };
   }, [booting, live]);
 
-  // feed flavor events (always)
+  // ORB poll — full real snapshot from the VDS agent (per-server players, TPS, feed)
   useEffect(() => {
-    if (booting) return;
+    if (booting || mode !== "orb") return;
+    let alive = true;
+    const poll = async () => {
+      try {
+        const snap = await fetch("/api/orb").then((r) => r.json());
+        if (!alive || !snap || !snap.configured) return;
+        setServers((prev) => {
+          const next = prev.map((s) => {
+            if (s.id === "proxy") return s;
+            const d = snap.servers && snap.servers[s.id];
+            if (!d) return s;
+            return { ...s, status: d.status, players: d.players ?? 0, cpu: d.cpu ?? 0, ram: d.ram ?? 0, tps: d.tps ?? 0, mspt: d.mspt ?? 0 };
+          });
+          applyAggregate(next);
+          return next;
+        });
+        if (Array.isArray(snap.feed) && snap.feed.length) {
+          setFeed(snap.feed.slice(0, 40).map((e) => ({
+            id: e.id, tkey: e.tkey, p: e.p, text: e.text, sev: e.sev, kind: e.kind,
+            votes: e.votes ?? 0, ago: Math.max(0, Math.round((Date.now() - (e.ts || Date.now())) / 60000)),
+          })));
+        }
+      } catch (e) {}
+    };
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => { alive = false; clearInterval(id); };
+  }, [booting, mode]);
+
+  // feed flavor events (DEMO/BASIC only — ORB uses the real agent feed)
+  useEffect(() => {
+    if (booting || mode === "orb") return;
     const t = setInterval(() => {
       if (Math.random() < 0.55) {
         const tpl = pick(FEED_TEMPLATES);
