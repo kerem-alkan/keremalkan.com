@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64" width="240" height="64" fill="none">
+  <g>
+    <path d="M32,4 C39,16 43,21 43,29 C43,38 38,43 32,48 C26,43 21,38 21,29 C21,21 25,16 32,4 Z" fill="#E8B04B"/>
+    <path d="M32,4 C39,16 43,21 43,29 C43,38 38,43 32,48 L32,4 Z" fill="#C6952F"/>
+    <rect x="24" y="46" width="16" height="3" rx="1.5" fill="#E8B04B"/>
+    <rect x="30.5" y="48" width="3" height="14" fill="#E8B04B"/>
+  </g>
+  <text x="72" y="42" font-family="ui-sans-serif,system-ui,Segoe UI,sans-serif" font-size="34" font-weight="700" fill="currentColor" letter-spacing="0.3">AISpear</text>
+</svg>
