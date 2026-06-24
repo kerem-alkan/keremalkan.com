@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 export default async function Hub() {
   const session = await getSession();
   if (!session) redirect("/aispear/login?next=/hub");
-  const isAdmin = session.role === "admin";
+  const isAdmin = session.isAdmin || session.role === "admin";
 
   return (
     <div style={{ minHeight: "100vh", background: D.bg, color: D.ink,

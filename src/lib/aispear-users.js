@@ -17,7 +17,7 @@ export function loadUsers() {
 }
 
 // scrypt doğrulama. Saklama formatı: "saltHex:hashHex"
-function verifyHash(password, stored) {
+export function verifyHash(password, stored) {
   try {
     const [salt, key] = String(stored).split(':');
     if (!salt || !key) return false;

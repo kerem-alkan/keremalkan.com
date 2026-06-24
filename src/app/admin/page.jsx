@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 export default async function Admin() {
   const session = await getSession();
   if (!session) redirect("/aispear/login?next=/admin");
-  if (session.role !== "admin") redirect("/hub");
+  if (!(session.isAdmin || session.role === "admin")) redirect("/hub");
 
   const users = listUsersSafe();
 
