@@ -15,7 +15,7 @@ export async function GET() {
     });
     if (!r.ok) return Response.json({ configured: false });
     const j = await r.json();
-    return Response.json({ configured: true, ...j });
+    return Response.json({ configured: true, ...j }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return Response.json({ configured: false });
   }

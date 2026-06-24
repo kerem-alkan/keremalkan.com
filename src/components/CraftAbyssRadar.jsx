@@ -31,7 +31,7 @@ const STR = {
     st: { online: "ÇEVRİMİÇİ", degraded: "SORUNLU", offline: "ÇEVRİMDIŞI" },
     op: { online: "Çalışıyor", degraded: "Sorunlu", offline: "Kapalı" },
     sev: { HIGH: "YÜKSEK", MEDIUM: "ORTA", LOW: "DÜŞÜK" }, ago: " dk önce",
-    fd_live: "CANLI AKIŞ", fd_all: "TÜM AKIŞ", fd_players: "OYUNCULAR", fd_events: "OLAYLAR", fd_high: "YÜKSEK",
+    fd_live: "CANLI AKIŞ", fd_all: "TÜM AKIŞ", fd_players: "OYUNCULAR", fd_events: "OLAYLAR", fd_high: "YÜKSEK", fd_empty: "Canlı olaylar yakında — sunucu eklentisi kurulunca akış buraya gelir.",
     fd_top: "TOPLULUK · SON 24S", fd_conf: "GÜVEN %100",
     mk_item: "EŞYA PİYASASI", mk_econ: "EKONOMİ", mk_barons: "EN ZENGİNLER",
     rarity: { RARE: "NADİR", COMMON: "YAYGIN", EPIC: "EPİK" },
@@ -64,7 +64,7 @@ const STR = {
     st: { online: "ONLINE", degraded: "DEGRADED", offline: "OFFLINE" },
     op: { online: "Operational", degraded: "Degraded", offline: "Down" },
     sev: { HIGH: "HIGH", MEDIUM: "MEDIUM", LOW: "LOW" }, ago: "m ago",
-    fd_live: "LIVE FEED", fd_all: "ALL FEED", fd_players: "PLAYERS", fd_events: "EVENTS", fd_high: "HIGH",
+    fd_live: "LIVE FEED", fd_all: "ALL FEED", fd_players: "PLAYERS", fd_events: "EVENTS", fd_high: "HIGH", fd_empty: "Live events coming soon — they will stream here once the server plugin is installed.",
     fd_top: "COMMUNITY TOP 24H", fd_conf: "CONFIDENCE 100%",
     mk_item: "ITEM MARKET", mk_econ: "ECONOMY", mk_barons: "TOP BARONS",
     rarity: { RARE: "RARE", COMMON: "COMMON", EPIC: "EPIC" },
@@ -415,7 +415,7 @@ function TopBar({ players, lang, setLang, live }) {
 function Ticker({ events }) {
   const t = useT();
   const hi = events.filter((e) => e.sev !== "LOW");
-  const line = (hi.length ? hi : events).map((e) => (e.tkey && t.feedTpl[e.tkey] ? t.feedTpl[e.tkey](e.p) : (e.text || "")).toUpperCase()).join("      •      ");
+  const line = (hi.length ? hi : events).map((e) => (e.tkey && t.feedTpl[e.tkey] ? t.feedTpl[e.tkey](e.p) : (e.text || "")).toUpperCase()).join("      •      ") || "CRAFTABYSS";
   return (
     <div style={{ display: "flex", alignItems: "center", borderBottom: `1px solid ${C.line}`,
       background: "#0a0710", position: "relative", zIndex: 25, overflow: "hidden" }}>
@@ -612,6 +612,9 @@ function Feed({ feed, setFeed }) {
         })}
       </div>
 
+      {feed.length === 0 && (
+        <div className="mono" style={{ textAlign: "center", color: C.mute, fontSize: 12, padding: "30px 10px", lineHeight: 1.6 }}>{t.fd_empty}</div>
+      )}
       {top && (
         <div style={{ borderLeft: `3px solid ${C.warn}`, background: C.panel, borderRadius: "0 10px 10px 0", padding: 14, marginBottom: 14 }}>
           <div className="mono" style={{ display: "flex", alignItems: "center", gap: 8, color: C.warn, fontSize: 11, letterSpacing: 1, marginBottom: 10 }}>
@@ -940,16 +943,15 @@ export default function App() {
     return () => clearInterval(t);
   }, []);
 
-  // pick best data source: orb-agent (full) > pterodactyl (basic) > demo
+  // pick best data source on mount (resolves during boot — no DEMO flash)
   useEffect(() => {
-    if (booting) return;
     let alive = true;
     (async () => {
-      try { const o = await fetch("/api/orb").then((r) => r.json()); if (alive && o && o.configured) { setMode("orb"); return; } } catch (e) {}
-      try { const pp = await fetch("/api/ptero").then((r) => r.json()); if (alive && pp && pp.configured) { setMode("basic"); return; } } catch (e) {}
+      try { const o = await fetch("/api/orb", { cache: "no-store" }).then((r) => r.json()); if (alive && o && o.configured) { setMode("orb"); return; } } catch (e) {}
+      try { const pp = await fetch("/api/ptero", { cache: "no-store" }).then((r) => r.json()); if (alive && pp && pp.configured) { setMode("basic"); return; } } catch (e) {}
     })();
     return () => { alive = false; };
-  }, [booting]);
+  }, []);
 
   // DEMO simulator (shaped like real Pterodactyl + ping + RCON) — runs until LIVE
   useEffect(() => {
@@ -988,9 +990,9 @@ export default function App() {
     const poll = async () => {
       try {
         const [ptero, mc, tpsd] = await Promise.all([
-          fetch("/api/ptero").then((r) => r.json()),
-          fetch("/api/mc").then((r) => r.json()).catch(() => ({})),
-          fetch("/api/tps").then((r) => r.json()).catch(() => ({})),
+          fetch("/api/ptero", { cache: "no-store" }).then((r) => r.json()),
+          fetch("/api/mc", { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
+          fetch("/api/tps", { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
         ]);
         if (!alive) return;
         setServers((prev) => {
@@ -1021,11 +1023,10 @@ export default function App() {
     let alive = true;
     const poll = async () => {
       try {
-        const snap = await fetch("/api/orb").then((r) => r.json());
+        const snap = await fetch("/api/orb", { cache: "no-store" }).then((r) => r.json());
         if (!alive || !snap || !snap.configured) return;
         setServers((prev) => {
           const next = prev.map((s) => {
-            if (s.id === "proxy") return s;
             const d = snap.servers && snap.servers[s.id];
             if (!d) return s;
             return { ...s, status: d.status, players: d.players ?? 0, cpu: d.cpu ?? 0, ram: d.ram ?? 0, tps: d.tps ?? 0, mspt: d.mspt ?? 0 };
@@ -1033,7 +1034,7 @@ export default function App() {
           applyAggregate(next);
           return next;
         });
-        if (Array.isArray(snap.feed) && snap.feed.length) {
+        if (Array.isArray(snap.feed)) {
           setFeed(snap.feed.slice(0, 40).map((e) => ({
             id: e.id, tkey: e.tkey, p: e.p, text: e.text, sev: e.sev, kind: e.kind,
             votes: e.votes ?? 0, ago: Math.max(0, Math.round((Date.now() - (e.ts || Date.now())) / 60000)),
