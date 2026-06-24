@@ -72,7 +72,7 @@ export default function Hero() {
         {/* Social links */}
         <div className="flex gap-6 justify-center mt-12 opacity-0 animate-fade-in" style={{ animationDelay: "1s" }}>
           {[
-            { href: "https://github.com/keremalkan", label: "GitHub", icon: "github" },
+            { href: "https://github.com/kerem-alkan", label: "GitHub", icon: "github" },
             { href: "https://discord.gg/craftabyss", label: "Discord", icon: "discord" },
             { href: "https://craftabyss.com", label: "CraftAbyss", icon: "server" },
           ].map((s) => (

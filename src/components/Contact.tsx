@@ -34,7 +34,7 @@ export default function Contact() {
 
         <div className="flex justify-center gap-8">
           {[
-            { label: "GitHub", href: "https://github.com/keremalkan" },
+            { label: "GitHub", href: "https://github.com/kerem-alkan" },
             { label: "Discord Server", href: "https://discord.gg/craftabyss" },
             { label: "CraftAbyss", href: "https://craftabyss.com" },
           ].map((l) => (

@@ -14,7 +14,7 @@ const links = [
   },
   {
     label: "💻 GitHub",
-    href: "https://github.com/keremalkan",
+    href: "https://github.com/kerem-alkan",
     sub: "@keremalkan",
     color: "from-gray-600/20 to-slate-600/20 border-gray-500/20 hover:border-gray-400/50",
   },
