@@ -116,6 +116,8 @@ export const DDL = [
     banned_until TIMESTAMPTZ,
     PRIMARY KEY (bucket, ip)
   )`,
+
+  `ALTER TABLE licenses ADD COLUMN IF NOT EXISTS duration_days INTEGER`,
 ];
 
 // Varsayılan roller

@@ -16,7 +16,7 @@ const D = {
 const SECTIONS = [
   { id: "dashboard", label: "Panel", icon: LayoutDashboard },
   { id: "users", label: "Kullanıcılar", icon: UsersIcon },
-  { id: "licenses", label: "Lisanslar", icon: KeyRound, soon: true },
+  { id: "licenses", label: "Lisanslar", icon: KeyRound },
   { id: "roles", label: "Roller", icon: Shield, soon: true },
   { id: "live", label: "Canlı", icon: Activity, soon: true },
   { id: "audit", label: "Denetim", icon: ScrollText, soon: true },
@@ -30,6 +30,17 @@ const STATUS = [
 ];
 const stMeta = (v) => STATUS.find((s) => s.v === v) || { l: v || "—", c: "#8B86A0" };
 
+const LIC_STATUS = {
+  pending_start: { l: "Beklemede", c: "#F59E0B" },
+  active: { l: "Aktif", c: "#34D399" },
+  frozen: { l: "Dondurulmuş", c: "#60A5FA" },
+  suspended: { l: "Askıda", c: "#F59E0B" },
+  expired: { l: "Süresi doldu", c: "#8B86A0" },
+  revoked: { l: "İptal", c: "#F87171" },
+};
+const licSt = (v) => LIC_STATUS[v] || { l: v || "—", c: "#8B86A0" };
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("tr-TR") : "—");
+
 function SpearMark({ size = 26 }) {
   return (
     <svg viewBox="0 0 64 64" width={size} height={size} fill="none" style={{ filter: "drop-shadow(0 0 10px rgba(232,176,75,0.5))" }}>
@@ -38,6 +49,12 @@ function SpearMark({ size = 26 }) {
       <rect x="24" y="46" width="16" height="3" rx="1.5" fill="#E8B04B" />
       <rect x="30.5" y="48" width="3" height="14" fill="#E8B04B" />
     </svg>
+  );
+}
+
+function ActBtn({ children, onClick, danger }) {
+  return (
+    <button onClick={onClick} style={{ background: "none", border: `1px solid ${danger ? "rgba(248,113,113,0.4)" : "#2A2140"}`, color: danger ? "#F87171" : "#ECE9F2", borderRadius: 7, padding: "4px 8px", fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap" }}>{children}</button>
   );
 }
 
@@ -52,6 +69,7 @@ export default function AdminApp({ me }) {
   const [section, setSection] = useState("dashboard");
   const [meta, setMeta] = useState({ roles: [], stats: {} });
   const [users, setUsers] = useState([]);
+  const [licenses, setLicenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
@@ -61,16 +79,23 @@ export default function AdminApp({ me }) {
   const [cuErr, setCuErr] = useState("");
   const [cuBusy, setCuBusy] = useState(false);
 
+  const [showCreateLic, setShowCreateLic] = useState(false);
+  const [cl, setCl] = useState({ type: "time", durationDays: 30, seatLimit: 1, count: 1, username: "", notes: "" });
+  const [clErr, setClErr] = useState("");
+  const [clBusy, setClBusy] = useState(false);
+
   const loadAll = useCallback(async () => {
     setLoading(true); setErr("");
     try {
-      const [m, u] = await Promise.all([
+      const [m, u, l] = await Promise.all([
         fetch("/api/admin/meta").then((r) => r.json()),
         fetch("/api/admin/users").then((r) => r.json()),
+        fetch("/api/admin/licenses").then((r) => r.json()),
       ]);
       if (m.ok) setMeta({ roles: m.roles || [], stats: m.stats || {} });
       if (u.ok) setUsers(u.users || []);
       else setErr(u.error || "Yüklenemedi");
+      if (l.ok) setLicenses(l.licenses || []);
     } catch {
       setErr("Bağlantı hatası");
     }
@@ -103,6 +128,29 @@ export default function AdminApp({ me }) {
     if (!d.ok) { setCuErr(d.error || "Hata"); return; }
     setShowCreate(false);
     setCu({ username: "", email: "", password: "", role: "member" });
+    loadAll();
+  }
+
+  async function licAction(id, action, payload) {
+    const r = await fetch(`/api/admin/licenses/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...(payload || {}) }) });
+    const d = await r.json();
+    if (!d.ok) alert(d.error || "Hata");
+    loadAll();
+  }
+  async function removeLic(id, key) {
+    if (!window.confirm(`Lisans ${key} silinsin mi?`)) return;
+    const r = await fetch(`/api/admin/licenses/${id}`, { method: "DELETE" });
+    const d = await r.json();
+    if (!d.ok) alert(d.error || "Hata");
+    loadAll();
+  }
+  async function submitCreateLic() {
+    setClErr(""); setClBusy(true);
+    const r = await fetch("/api/admin/licenses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cl) });
+    const d = await r.json(); setClBusy(false);
+    if (!d.ok) { setClErr(d.error || "Hata"); return; }
+    setShowCreateLic(false);
+    setCl({ type: "time", durationDays: 30, seatLimit: 1, count: 1, username: "", notes: "" });
     loadAll();
   }
 
@@ -148,10 +196,10 @@ export default function AdminApp({ me }) {
         <div style={{ padding: 14, borderTop: `1px solid ${D.line}`, fontSize: 12, color: D.muted }}>
           <div style={{ color: D.ink, fontWeight: 600 }}>{me?.username}</div>
           <div className="m" style={{ fontSize: 10, color: D.gold, letterSpacing: 1 }}>{(me?.role || "admin").toUpperCase()}</div>
-          <a href="/hub" className="m" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 10, color: D.gold, textDecoration: "none", fontSize: 12 }}>
+          <a href="/hub" className="m" style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 12, color: D.gold, textDecoration: "none", fontSize: 12 }}>
             ← Üye alanı (Hub)
           </a>
-          <a href="/api/logout" className="m" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, color: D.muted, textDecoration: "none", fontSize: 12 }}>
+          <a href="/api/logout" className="m" style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, color: D.muted, textDecoration: "none", fontSize: 12 }}>
             <LogOut size={13} /> ÇIKIŞ
           </a>
         </div>
@@ -176,6 +224,13 @@ export default function AdminApp({ me }) {
                 style={{ display: "flex", alignItems: "center", gap: 7, border: "none", borderRadius: 10, padding: "9px 15px", cursor: "pointer",
                   fontSize: 14, fontWeight: 600, color: "#1a1206", background: `linear-gradient(135deg, ${D.gold}, ${D.goldDark})` }}>
                 <Plus size={16} /> Yeni kullanıcı
+              </button>
+            )}
+            {section === "licenses" && (
+              <button onClick={() => setShowCreateLic(true)}
+                style={{ display: "flex", alignItems: "center", gap: 7, border: "none", borderRadius: 10, padding: "9px 15px", cursor: "pointer",
+                  fontSize: 14, fontWeight: 600, color: "#1a1206", background: `linear-gradient(135deg, ${D.gold}, ${D.goldDark})` }}>
+                <Plus size={16} /> Yeni lisans
               </button>
             )}
           </div>
@@ -253,8 +308,41 @@ export default function AdminApp({ me }) {
             </div>
           )}
 
+          {/* ── Lisanslar ── */}
+          {section === "licenses" && (
+            <div style={{ background: D.surface, border: `1px solid ${D.line}`, borderRadius: 14, overflow: "hidden" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 0.9fr 1fr 0.9fr 1.5fr", gap: 8, padding: "12px 18px", borderBottom: `1px solid ${D.line}` }}>
+                {["ANAHTAR", "KULLANICI", "TİP", "DURUM", "BİTİŞ", "İŞLEM"].map((h, i) => (
+                  <div key={i} className="m" style={{ fontSize: 10.5, letterSpacing: 1, color: D.muted }}>{h}</div>
+                ))}
+              </div>
+              {loading && <div style={{ padding: "24px 18px", color: D.muted }}>Yükleniyor…</div>}
+              {!loading && licenses.length === 0 && <div style={{ padding: "24px 18px", color: D.muted }}>Henüz lisans yok. Sağ üstten "Yeni lisans" ile üret.</div>}
+              {licenses.map((l, idx) => {
+                const st = licSt(l.status);
+                return (
+                  <div key={l.id} className="row" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 0.9fr 1fr 0.9fr 1.5fr", gap: 8, alignItems: "center", padding: "11px 18px", borderTop: idx === 0 ? "none" : `1px solid ${D.line}` }}>
+                    <div className="m" style={{ fontSize: 12, color: D.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.key}</div>
+                    <div style={{ fontSize: 13, color: l.owner ? D.ink : D.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.owner || "atanmamış"}</div>
+                    <div className="m" style={{ fontSize: 11.5, color: D.muted }}>{l.type}{l.duration_days ? ` · ${l.duration_days}g` : ""}</div>
+                    <div style={{ fontSize: 12.5, color: st.c }}>{st.l}</div>
+                    <div style={{ fontSize: 12, color: D.muted }}>{fmtDate(l.expires_at)}</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {l.status === "pending_start" && <ActBtn onClick={() => licAction(l.id, "start")}>Başlat</ActBtn>}
+                      {l.status === "active" && <ActBtn onClick={() => licAction(l.id, "freeze")}>Dondur</ActBtn>}
+                      {l.status === "frozen" && <ActBtn onClick={() => licAction(l.id, "resume")}>Sürdür</ActBtn>}
+                      {(l.status === "active" || l.status === "frozen") && <ActBtn onClick={() => licAction(l.id, "extend", { days: 30 })}>+30g</ActBtn>}
+                      {l.status !== "revoked" && <ActBtn onClick={() => licAction(l.id, "revoke")} danger>İptal</ActBtn>}
+                      <ActBtn onClick={() => removeLic(l.id, l.key)} danger>Sil</ActBtn>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* ── Yakında bölümleri ── */}
-          {["licenses", "roles", "live", "audit"].includes(section) && (
+          {["roles", "live", "audit"].includes(section) && (
             <div style={{ background: D.surface, border: `1px dashed ${D.line}`, borderRadius: 16, padding: "48px 24px", textAlign: "center", color: D.muted }}>
               <div style={{ fontSize: 16, color: D.ink, fontWeight: 600, marginBottom: 6 }}>{SECTIONS.find((s) => s.id === section)?.label} — yakında</div>
               <div style={{ fontSize: 13.5 }}>Bu bölüm sıradaki adımda ekleniyor (lisans üret/ata/iptal, rol & izin matrisi, canlı oturumlar, denetim logu).</div>
@@ -304,6 +392,50 @@ export default function AdminApp({ me }) {
               {cuBusy ? "Oluşturuluyor…" : "Oluştur"}
             </button>
             <div style={{ marginTop: 10, fontSize: 11.5, color: D.muted, textAlign: "center" }}>Parola sunucuda scrypt ile hash'lenir; düz saklanmaz.</div>
+          </div>
+        </div>
+      )}
+
+      {showCreateLic && (
+        <div onClick={() => setShowCreateLic(false)} style={{ position: "fixed", inset: 0, background: "rgba(5,3,9,0.7)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, background: D.surface, border: `1px solid ${D.line}`, borderRadius: 18, padding: 22, position: "relative" }}>
+            <button onClick={() => setShowCreateLic(false)} style={{ position: "absolute", top: 14, right: 14, background: "none", border: "none", color: D.muted, cursor: "pointer" }}><X size={18} /></button>
+            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 18 }}>
+              <KeyRound size={20} color={D.gold} />
+              <div style={{ fontSize: 18, fontWeight: 700 }}>Yeni lisans</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label className="m" style={{ fontSize: 11, letterSpacing: 1, color: D.muted }}>TİP</label>
+                <select className="ai-in" style={{ marginTop: 6 }} value={cl.type} onChange={(e) => setCl({ ...cl, type: e.target.value })}>
+                  <option value="time">Süreli</option>
+                  <option value="key">Anahtar</option>
+                  <option value="seat">Cihaz limitli</option>
+                  <option value="feature">Özellik bazlı</option>
+                </select>
+              </div>
+              <div>
+                <label className="m" style={{ fontSize: 11, letterSpacing: 1, color: D.muted }}>SÜRE (GÜN)</label>
+                <input type="number" className="ai-in" style={{ marginTop: 6 }} value={cl.durationDays} onChange={(e) => setCl({ ...cl, durationDays: e.target.value })} />
+              </div>
+              <div>
+                <label className="m" style={{ fontSize: 11, letterSpacing: 1, color: D.muted }}>CİHAZ LİMİTİ</label>
+                <input type="number" className="ai-in" style={{ marginTop: 6 }} value={cl.seatLimit} onChange={(e) => setCl({ ...cl, seatLimit: e.target.value })} />
+              </div>
+              <div>
+                <label className="m" style={{ fontSize: 11, letterSpacing: 1, color: D.muted }}>ADET</label>
+                <input type="number" className="ai-in" style={{ marginTop: 6 }} value={cl.count} onChange={(e) => setCl({ ...cl, count: e.target.value })} />
+              </div>
+            </div>
+            <label className="m" style={{ fontSize: 11, letterSpacing: 1, color: D.muted, display: "block", marginTop: 13 }}>KULLANICIYA ATA (opsiyonel)</label>
+            <input className="ai-in" style={{ marginTop: 6 }} placeholder="kullanıcı adı" value={cl.username} onChange={(e) => setCl({ ...cl, username: e.target.value })} />
+            <label className="m" style={{ fontSize: 11, letterSpacing: 1, color: D.muted, display: "block", marginTop: 13 }}>NOT (opsiyonel)</label>
+            <input className="ai-in" style={{ marginTop: 6 }} value={cl.notes} onChange={(e) => setCl({ ...cl, notes: e.target.value })} />
+            {clErr && <div style={{ marginTop: 13, color: "#F87171", fontSize: 13 }}>{clErr}</div>}
+            <button onClick={submitCreateLic} disabled={clBusy} style={{ width: "100%", marginTop: 18, border: "none", borderRadius: 11, padding: "12px", cursor: clBusy ? "default" : "pointer", fontSize: 15, fontWeight: 600, color: "#1a1206", opacity: clBusy ? 0.6 : 1, background: `linear-gradient(135deg, ${D.gold}, ${D.goldDark})` }}>
+              {clBusy ? "Üretiliyor…" : "Üret"}
+            </button>
+            <div style={{ marginTop: 10, fontSize: 11.5, color: D.muted, textAlign: "center" }}>Lisans "beklemede" oluşur; "Başlat" deyince süre işler.</div>
           </div>
         </div>
       )}
