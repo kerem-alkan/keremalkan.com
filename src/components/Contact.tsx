@@ -11,7 +11,7 @@ export default function Contact() {
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
           <a
-            href="mailto:keremalkan0755@gmail.com"
+            href="mailto:contact@keremalkan.com"
             className="px-8 py-3 bg-[#7C3AED] hover:bg-[#6d28d9] text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

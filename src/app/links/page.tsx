@@ -26,8 +26,8 @@ const links = [
   },
   {
     label: "📧 E-posta",
-    href: "mailto:keremalkan0755@gmail.com",
-    sub: "keremalkan0755@gmail.com",
+    href: "mailto:contact@keremalkan.com",
+    sub: "contact@keremalkan.com",
     color: "from-red-600/20 to-pink-600/20 border-red-500/20 hover:border-red-400/50",
   },
   {
