@@ -383,7 +383,7 @@ function OrbMark({ size = 96, glow = true, gid = "orb" }) {
 }
 
 /* ============================== CHROME ============================== */
-function TopBar({ players, lang, setLang }) {
+function TopBar({ players, lang, setLang, live }) {
   const t = useT();
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px",
@@ -395,8 +395,8 @@ function TopBar({ players, lang, setLang }) {
         <span style={{ color: C.text }}>CRAFT</span><span style={{ color: C.abyss }}>ABYSS</span>
       </div>
       <div style={{ flex: 1 }} />
-      <Dot color={C.signal} pulse />
-      <span className="mono" style={{ color: C.signal, fontSize: 13, letterSpacing: 1 }}>{t.live}</span>
+      <Dot color={live ? C.signal : C.warn} pulse />
+      <span className="mono" style={{ color: live ? C.signal : C.warn, fontSize: 13, letterSpacing: 1 }}>{live ? t.live : "DEMO"}</span>
       <Users size={16} color={C.mute} />
       <span className="mono" style={{ color: C.text, fontSize: 13 }}>{players}</span>
       <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
@@ -914,10 +914,20 @@ export default function App() {
   const [delta] = useState(() => ri(-12, 8));
   const [selected, setSelected] = useState(null);
   const [lang, setLang] = useState("tr");
+  const [live, setLive] = useState(false);
   useEffect(() => {
     try { const sv = localStorage.getItem("ka_lang"); if (sv === "tr" || sv === "en") setLang(sv); } catch (e) {}
   }, []);
   useEffect(() => { try { localStorage.setItem("ka_lang", lang); } catch (e) {} }, [lang]);
+
+  const applyAggregate = (next) => {
+    const backends = next.filter((s) => s.id !== "proxy");
+    const proxy = next.find((s) => s.id === "proxy");
+    if (proxy) { proxy.players = backends.reduce((a, s) => a + s.players, 0); proxy.maxPlayers = backends.reduce((a, s) => a + s.maxPlayers, 0); }
+    const up = next.filter((s) => s.status !== "offline").length;
+    const avgTps = backends.reduce((a, s) => a + (s.status === "offline" ? 0 : s.tps), 0) / Math.max(1, backends.length);
+    setHealth(clamp(Math.round((up / next.length) * 60 + (avgTps / 20) * 40), 0, 100));
+  };
 
   // boot sequence
   useEffect(() => {
@@ -929,20 +939,26 @@ export default function App() {
     return () => clearInterval(t);
   }, []);
 
-  // live simulator (shaped like real Pterodactyl + ping + RCON responses)
+  // detect a real backend (Pterodactyl env configured) -> flip DEMO to LIVE
   useEffect(() => {
     if (booting) return;
+    let alive = true;
+    fetch("/api/ptero").then((r) => r.json()).then((j) => { if (alive && j && j.configured) setLive(true); }).catch(() => {});
+    return () => { alive = false; };
+  }, [booting]);
+
+  // DEMO simulator (shaped like real Pterodactyl + ping + RCON) — runs until LIVE
+  useEffect(() => {
+    if (booting || live) return;
     const t = setInterval(() => {
       setServers((prev) => {
         const next = prev.map((s) => {
           if (s.id === "proxy") return s;
           let { status, players, cpu, ram, tps, mspt } = s;
-          // rare state transitions
           const roll = Math.random();
           if (status === "online" && roll < 0.015) status = "degraded";
           else if (status === "degraded") { if (roll < 0.4) status = "online"; else if (roll > 0.95) status = "offline"; }
           else if (status === "offline" && roll < 0.5) status = "online";
-
           if (status === "offline") { players = 0; tps = 0; mspt = 0; cpu = clamp(cpu - 8, 1, 100); ram = clamp(ram - 0.4, 0.5, s.ramMax); }
           else {
             players = clamp(players + ri(-3, 4), 0, s.maxPlayers);
@@ -954,16 +970,51 @@ export default function App() {
           }
           return { ...s, status, players: Math.round(players), cpu, ram, tps, mspt };
         });
-        const backends = next.filter((s) => s.id !== "proxy");
-        const proxy = next.find((s) => s.id === "proxy");
-        if (proxy) { proxy.players = backends.reduce((a, s) => a + s.players, 0); proxy.maxPlayers = backends.reduce((a, s) => a + s.maxPlayers, 0); }
-        // health
-        const up = next.filter((s) => s.status !== "offline").length;
-        const avgTps = backends.reduce((a, s) => a + (s.status === "offline" ? 0 : s.tps), 0) / Math.max(1, backends.length);
-        setHealth(clamp(Math.round((up / next.length) * 60 + (avgTps / 20) * 40), 0, 100));
+        applyAggregate(next);
         return next;
       });
-      // occasional feed event
+    }, 2300);
+    return () => clearInterval(t);
+  }, [booting, live]);
+
+  // LIVE poll — real Pterodactyl + Minecraft ping + RCON/spark (INTEGRATION.md)
+  useEffect(() => {
+    if (booting || !live) return;
+    let alive = true;
+    const poll = async () => {
+      try {
+        const [ptero, mc, tpsd] = await Promise.all([
+          fetch("/api/ptero").then((r) => r.json()),
+          fetch("/api/mc").then((r) => r.json()).catch(() => ({})),
+          fetch("/api/tps").then((r) => r.json()).catch(() => ({})),
+        ]);
+        if (!alive) return;
+        setServers((prev) => {
+          const next = prev.map((s) => {
+            if (s.id === "proxy") return s;
+            const pp = ptero[s.id], tv = tpsd && tpsd[s.id];
+            const online = pp && pp.state === "running";
+            const tval = tv && tv.tps != null && tv.tps > 0 ? tv.tps : (online ? 20 : 0);
+            const status = !online ? "offline" : (tval > 0 && tval < 15) ? "degraded" : "online";
+            return { ...s, status,
+              players: online ? Math.round((mc.players ?? 0) / 2) : 0,
+              cpu: pp ? pp.cpu : 0, ram: pp ? pp.ram : 0, tps: online ? tval : 0,
+              mspt: online ? (tval >= 19 ? 2 : tval >= 15 ? 30 : 50) : 0 };
+          });
+          applyAggregate(next);
+          return next;
+        });
+      } catch (e) { /* keep last values */ }
+    };
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => { alive = false; clearInterval(id); };
+  }, [booting, live]);
+
+  // feed flavor events (always)
+  useEffect(() => {
+    if (booting) return;
+    const t = setInterval(() => {
       if (Math.random() < 0.55) {
         const tpl = pick(FEED_TEMPLATES);
         setFeed((f) => [makeEvent(tpl.key, pick(PLAYERS), tpl.sev, tpl.kind, 0), ...f.map((e) => ({ ...e, ago: e.ago + 1 }))].slice(0, 40));
@@ -997,7 +1048,7 @@ export default function App() {
       <div style={{ width: "100%", maxWidth: 460, height: "100%", display: "flex", flexDirection: "column",
         position: "relative", borderLeft: `1px solid ${C.line}`, borderRight: `1px solid ${C.line}`, overflow: "hidden" }}>
         {booting && <Boot progress={progress} />}
-        <TopBar players={totalPlayers} lang={lang} setLang={setLang} />
+        <TopBar players={totalPlayers} lang={lang} setLang={setLang} live={live} />
         <Ticker events={feed} />
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
           {tab === "operator" && <Overview servers={servers} health={health} delta={delta} onOpen={setSelected} />}
