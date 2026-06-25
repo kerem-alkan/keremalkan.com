@@ -59,7 +59,7 @@ const STR = {
 
 const PROJECTS = [
   {
-    id: "craftabyss", no: "01", live: true, title: "CraftAbyss",
+    id: "craftabyss", no: "01", live: true, href: "/craftabyss/live", title: "CraftAbyss",
     tag: { tr: "OYUN ALTYAPISI", en: "GAME INFRASTRUCTURE" },
     blurb: { tr: "Canlı operasyon görünümü Orb'a sahip, kendi sunucumda barındırdığım Minecraft ağı.", en: "Self-hosted Minecraft network with Orb — a live operations view." },
   },
