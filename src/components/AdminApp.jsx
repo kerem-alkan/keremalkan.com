@@ -5,6 +5,7 @@ import {
   LayoutDashboard, Users as UsersIcon, KeyRound, Shield, Activity, ScrollText,
   LogOut, Plus, Trash2, X, Search, RefreshCw, Wand2,
 } from "lucide-react";
+import RolesView from "./RolesView";
 
 /* VIP koyu tema — ORB ailesi, altın mızrak imzası */
 const D = {
@@ -17,7 +18,7 @@ const SECTIONS = [
   { id: "dashboard", label: "Panel", icon: LayoutDashboard },
   { id: "users", label: "Kullanıcılar", icon: UsersIcon },
   { id: "licenses", label: "Lisanslar", icon: KeyRound },
-  { id: "roles", label: "Roller", icon: Shield, soon: true },
+  { id: "roles", label: "Roller", icon: Shield },
   { id: "live", label: "Canlı", icon: Activity, soon: true },
   { id: "audit", label: "Denetim", icon: ScrollText, soon: true },
 ];
@@ -341,8 +342,11 @@ export default function AdminApp({ me }) {
             </div>
           )}
 
+          {/* ── Roller & izinler ── */}
+          {section === "roles" && <RolesView />}
+
           {/* ── Yakında bölümleri ── */}
-          {["roles", "live", "audit"].includes(section) && (
+          {["live", "audit"].includes(section) && (
             <div style={{ background: D.surface, border: `1px dashed ${D.line}`, borderRadius: 16, padding: "48px 24px", textAlign: "center", color: D.muted }}>
               <div style={{ fontSize: 16, color: D.ink, fontWeight: 600, marginBottom: 6 }}>{SECTIONS.find((s) => s.id === section)?.label} — yakında</div>
               <div style={{ fontSize: 13.5 }}>Bu bölüm sıradaki adımda ekleniyor (lisans üret/ata/iptal, rol & izin matrisi, canlı oturumlar, denetim logu).</div>
