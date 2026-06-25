@@ -90,3 +90,29 @@ export async function licenseAction(id, action, payload = {}) {
 export async function deleteLicense(id) {
   return await one('DELETE FROM licenses WHERE id=$1 RETURNING id', [id]);
 }
+
+// ── Kullanıcı tarafı ──
+export async function licensesForUser(userId) {
+  return await q(
+    `SELECT id, key, type, status, starts_at, expires_at, seat_limit, duration_days, created_at
+       FROM licenses WHERE user_id=$1 ORDER BY created_at DESC`,
+    [userId]
+  );
+}
+
+// Kullanıcı kendi anahtarını girer → kendine atanır, 'pending_start' (admin onayı bekler).
+export async function redeemLicense(userId, rawKey) {
+  const key = String(rawKey || '').trim().toUpperCase();
+  if (!key) return { error: 'Anahtar gerekli' };
+  const lic = await one('SELECT id, user_id, status FROM licenses WHERE key=$1', [key]);
+  if (!lic) return { error: 'Geçersiz lisans anahtarı' };
+  if (lic.user_id && lic.user_id !== userId) return { error: 'Bu lisans başka bir hesaba tanımlı' };
+  if (lic.user_id === userId) return { error: 'Bu lisans zaten hesabında' };
+  await q(
+    `UPDATE licenses SET user_id=$1,
+       status = CASE WHEN status IN ('revoked','expired') THEN status ELSE 'pending_start' END
+     WHERE id=$2`,
+    [userId, lic.id]
+  );
+  return { ok: true };
+}
