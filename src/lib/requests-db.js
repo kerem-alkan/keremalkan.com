@@ -61,8 +61,12 @@ export async function processVerified(reqId) {
 export async function listPendingApproval() {
   return await q(
     `SELECT id, username, email, license_key, email_verified, ip, created_at
-       FROM register_requests WHERE status='pending' AND email_verified=true ORDER BY id DESC`
+       FROM register_requests WHERE status='pending' ORDER BY id DESC`
   );
+}
+
+export async function deleteRequest(id) {
+  return await one('DELETE FROM register_requests WHERE id=$1 RETURNING id', [id]);
 }
 
 export async function approveRequest(id) {

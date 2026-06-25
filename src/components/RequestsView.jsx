@@ -44,17 +44,18 @@ export default function RequestsView() {
       {err && <div style={{ color: "#F87171", marginBottom: 12 }}>{err}</div>}
 
       <div style={{ background: D.surface, border: `1px solid ${D.line}`, borderRadius: 14, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1.6fr 1fr 0.9fr 130px", gap: 8, padding: "12px 18px", borderBottom: `1px solid ${D.line}` }}>
-          {["KULLANICI", "E-POSTA", "IP", "ZAMAN", ""].map((h, i) => (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr 0.9fr 0.9fr 0.8fr 120px", gap: 8, padding: "12px 18px", borderBottom: `1px solid ${D.line}` }}>
+          {["KULLANICI", "E-POSTA", "DURUM", "IP", "ZAMAN", ""].map((h, i) => (
             <div key={i} className="m" style={{ fontSize: 10.5, letterSpacing: 1, color: D.muted }}>{h}</div>
           ))}
         </div>
         {loading && <div style={{ padding: "24px 18px", color: D.muted }}>Yükleniyor…</div>}
         {!loading && rows.length === 0 && <div style={{ padding: "24px 18px", color: D.muted }}>Bekleyen başvuru yok.</div>}
         {rows.map((r, idx) => (
-          <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1.1fr 1.6fr 1fr 0.9fr 130px", gap: 8, alignItems: "center", padding: "11px 18px", borderTop: idx === 0 ? "none" : `1px solid ${D.line}` }}>
+          <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr 0.9fr 0.9fr 0.8fr 120px", gap: 8, alignItems: "center", padding: "11px 18px", borderTop: idx === 0 ? "none" : `1px solid ${D.line}` }}>
             <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.username}</div>
             <div style={{ fontSize: 12.5, color: D.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.email}</div>
+            <div style={{ fontSize: 11.5, color: r.email_verified ? "#34D399" : "#F59E0B" }}>{r.email_verified ? "doğrulandı" : "e-posta bekliyor"}</div>
             <div className="m" style={{ fontSize: 12, color: D.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.ip || "—"}</div>
             <div style={{ fontSize: 12, color: D.muted }}>{ago(r.created_at)}</div>
             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>

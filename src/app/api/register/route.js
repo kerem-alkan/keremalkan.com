@@ -1,6 +1,6 @@
 // AISpear — kayıt (signup). Turnstile + rate-limit + e-posta doğrulama başlatır.
 import { NextResponse } from 'next/server';
-import { createRequest, processVerified } from '@/lib/requests-db';
+import { createRequest, processVerified, deleteRequest } from '@/lib/requests-db';
 import { verifyTurnstile } from '@/lib/turnstile';
 import { rateLimit } from '@/lib/ratelimit';
 import { sendEmail, verifyEmailHtml } from '@/lib/email';
@@ -27,6 +27,10 @@ export async function POST(req) {
       // Resend kurulmadıysa e-postayı atla, doğrudan işle (geçici)
       const res = await processVerified(r.id);
       return NextResponse.json({ ok: true, emailless: true, message: res.message });
+    }
+    if (!mail.ok) {
+      try { await deleteRequest(r.id); } catch {}
+      return NextResponse.json({ ok: false, error: "Doğrulama e-postası gönderilemedi. (Resend test modunda yalnızca kendi hesap e-postana gönderebilir — o adresi kullan ya da Resend'de keremalkan.com'u doğrula.)" }, { status: 502 });
     }
     return NextResponse.json({ ok: true, message: 'Doğrulama e-postası gönderildi. Gelen kutunu (ve spam) kontrol et.' });
   } catch (e) {
