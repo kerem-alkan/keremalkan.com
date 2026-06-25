@@ -1,13 +1,13 @@
 // AISpear — kullanıcı kendi lisans anahtarını girer; kendine atanır, admin onayı bekler.
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/aispear-session';
+import { getLiveSession } from '@/lib/aispear-session';
 import { one } from '@/lib/db';
 import { redeemLicense } from '@/lib/licenses-db';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req) {
-  const s = await getSession();
+  const s = await getLiveSession();
   if (!s) return NextResponse.json({ ok: false, error: 'Giriş gerekli' }, { status: 401 });
   let uid = s.uid;
   if (!uid) { const u = await one('SELECT id FROM users WHERE username=$1', [s.username]); uid = u ? u.id : null; }

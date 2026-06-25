@@ -75,6 +75,15 @@ export async function updateUser(id, fields) {
 }
 
 export async function deleteUser(id) {
+  // Lisansları serbest bırak: aktif sayımda kalmasın, yeniden atanabilsin (revoked/expired korunur).
+  try {
+    await q(
+      `UPDATE licenses SET user_id=NULL,
+         status = CASE WHEN status IN ('revoked','expired') THEN status ELSE 'pending_start' END
+       WHERE user_id=$1`,
+      [id]
+    );
+  } catch {}
   return await one('DELETE FROM users WHERE id=$1 RETURNING id', [id]);
 }
 

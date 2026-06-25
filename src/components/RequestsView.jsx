@@ -59,8 +59,11 @@ export default function RequestsView() {
             <div className="m" style={{ fontSize: 12, color: D.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.ip || "—"}</div>
             <div style={{ fontSize: 12, color: D.muted }}>{ago(r.created_at)}</div>
             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-              <button onClick={() => act(r.id, "approve", r.username)} title="Onayla"
-                style={{ display: "flex", alignItems: "center", gap: 5, border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#0c1f17", background: D.green }}>
+              <button onClick={() => r.email_verified && act(r.id, "approve", r.username)} disabled={!r.email_verified}
+                title={r.email_verified ? "Onayla" : "Kullanıcı e-postasını doğrulamadan onaylanamaz"}
+                style={{ display: "flex", alignItems: "center", gap: 5, border: "none", borderRadius: 8, padding: "6px 10px",
+                  cursor: r.email_verified ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 600,
+                  color: r.email_verified ? "#0c1f17" : "#0c1f1788", background: r.email_verified ? D.green : "#34d39955", opacity: r.email_verified ? 1 : 0.55 }}>
                 <Check size={13} /> Onayla
               </button>
               <button onClick={() => act(r.id, "reject", r.username)} title="Reddet"

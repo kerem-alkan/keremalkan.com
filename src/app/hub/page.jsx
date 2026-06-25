@@ -1,7 +1,7 @@
 // AISpear Hub — girişli kullanıcı alanı (KOYU). GERÇEK lisans durumu DB'den.
 import { redirect } from "next/navigation";
 import { ShieldCheck, Clock, Snowflake, KeyRound, Download, LogOut, Lock } from "lucide-react";
-import { getSession } from "@/lib/aispear-session";
+import { getLiveSession } from "@/lib/aispear-session";
 import { one } from "@/lib/db";
 import { licensesForUser } from "@/lib/licenses-db";
 import HubRedeem from "@/components/HubRedeem";
@@ -34,8 +34,8 @@ function SpearMark({ size = 28 }) {
 export const dynamic = "force-dynamic";
 
 export default async function Hub() {
-  const session = await getSession();
-  if (!session) redirect("/aispear/login?next=/hub");
+  const session = await getLiveSession();
+  if (!session) redirect("/api/logout?next=/aispear/login"); // silinen/pasif kullanıcı → cookie temizle + login
   const isAdmin = session.isAdmin || session.role === "admin";
 
   let uid = session.uid;

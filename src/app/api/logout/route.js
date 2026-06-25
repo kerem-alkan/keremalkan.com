@@ -8,7 +8,9 @@ function clear(res) {
 }
 
 export async function GET(req) {
-  return clear(NextResponse.redirect(new URL('/aispear', req.url)));
+  const next = new URL(req.url).searchParams.get('next');
+  const dest = next && next.startsWith('/') ? next : '/aispear'; // sadece iç yollar (open-redirect koruması)
+  return clear(NextResponse.redirect(new URL(dest, req.url)));
 }
 
 export async function POST() {

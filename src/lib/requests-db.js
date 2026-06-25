@@ -73,6 +73,8 @@ export async function approveRequest(id) {
   const req = await one('SELECT * FROM register_requests WHERE id=$1', [id]);
   if (!req) throw new Error('Başvuru yok');
   if (req.status !== 'pending') throw new Error('Zaten işlenmiş');
+  // E-posta doğrulaması zorunlu — admin bunu atlayamaz, aksi halde doğrulama anlamsız olur.
+  if (!req.email_verified) throw new Error('Kullanıcı e-postasını henüz doğrulamadı; doğrulanmadan onaylanamaz.');
   const roleId = await ensureMemberRoleId();
   const u = await one(
     `INSERT INTO users (username,email,pass_hash,role_id,status,email_verified_at,created_by)
