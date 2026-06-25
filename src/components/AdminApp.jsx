@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  LayoutDashboard, Users as UsersIcon, KeyRound, Shield, Activity, ScrollText,
+  LayoutDashboard, Users as UsersIcon, KeyRound, Shield, Activity, ScrollText, Inbox,
   LogOut, Plus, Trash2, X, Search, RefreshCw, Wand2,
 } from "lucide-react";
 import RolesView from "./RolesView";
 import LiveView from "./LiveView";
 import AuditView from "./AuditView";
+import RequestsView from "./RequestsView";
 
 /* VIP koyu tema — ORB ailesi, altın mızrak imzası */
 const D = {
@@ -19,6 +20,7 @@ const D = {
 const SECTIONS = [
   { id: "dashboard", label: "Panel", icon: LayoutDashboard },
   { id: "users", label: "Kullanıcılar", icon: UsersIcon },
+  { id: "requests", label: "Onaylar", icon: Inbox },
   { id: "licenses", label: "Lisanslar", icon: KeyRound },
   { id: "roles", label: "Roller", icon: Shield },
   { id: "live", label: "Canlı", icon: Activity },
@@ -192,6 +194,7 @@ export default function AdminApp({ me }) {
                 <Icon size={17} color={active ? D.gold : D.muted} />
                 <span style={{ flex: 1 }}>{s.label}</span>
                 {s.soon && <span className="m" style={{ fontSize: 9, letterSpacing: 0.5, color: D.muted, border: `1px solid ${D.line}`, borderRadius: 99, padding: "1px 6px" }}>yakında</span>}
+                {s.id === "requests" && stats.pendingRequests > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: "#1a1206", background: D.gold, borderRadius: 99, padding: "1px 7px" }}>{stats.pendingRequests}</span>}
               </button>
             );
           })}
@@ -310,6 +313,9 @@ export default function AdminApp({ me }) {
               </div>
             </div>
           )}
+
+          {/* ── Onay kuyruğu ── */}
+          {section === "requests" && <RequestsView />}
 
           {/* ── Lisanslar ── */}
           {section === "licenses" && (

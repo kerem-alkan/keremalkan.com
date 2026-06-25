@@ -28,12 +28,23 @@ export default function AISpearLogin() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [next, setNext] = useState("");
+  const [verifyMsg, setVerifyMsg] = useState("");
 
   useEffect(() => {
     document.body.style.background = D.bg;
     try {
-      const p = new URLSearchParams(window.location.search).get("next");
+      const sp = new URLSearchParams(window.location.search);
+      const p = sp.get("next");
       if (p && p.startsWith("/")) setNext(p);
+      const v = sp.get("verify");
+      const VM = {
+        lic: "E-posta doğrulandı! Hesabın hazır; lisansın yönetici onayında.",
+        pending: "E-posta doğrulandı! Başvurun yönetici onayında.",
+        done: "E-posta doğrulandı. Giriş yapabilirsin.",
+        badkey: "E-posta doğrulandı; lisans anahtarı geçersiz/dolu olduğundan başvurun onay kuyruğunda.",
+        err: "Doğrulama bağlantısı geçersiz veya süresi dolmuş.",
+      };
+      if (v && VM[v]) setVerifyMsg(VM[v]);
     } catch {}
     const onKey = (e) => { if (e.key === "Escape") router.push("/aispear"); };
     window.addEventListener("keydown", onKey);
@@ -83,6 +94,10 @@ export default function AISpearLogin() {
           <div className="m" style={{ fontSize: 11, letterSpacing: 2, color: D.muted, marginTop: 6 }}>ÜYE GİRİŞİ</div>
         </div>
 
+        {verifyMsg && (
+          <div style={{ background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.4)", color: "#34D399", borderRadius: 12, padding: "11px 14px", fontSize: 13, marginBottom: 14, lineHeight: 1.45 }}>{verifyMsg}</div>
+        )}
+
         <form onSubmit={submit} style={{ background: D.surface, border: `1px solid ${D.line}`, borderRadius: 18, padding: 22 }}>
           <label className="m" style={{ fontSize: 11, letterSpacing: 1, color: D.muted }}>KULLANICI ADI</label>
           <input className="ai-in" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus autoComplete="username"
@@ -108,6 +123,10 @@ export default function AISpearLogin() {
         <button onClick={() => router.push("/aispear")} className="m"
           style={{ display: "block", margin: "18px auto 0", background: "none", border: "none", color: D.muted, fontSize: 12, letterSpacing: 0.5, cursor: "pointer" }}>
           ← AISpear sayfasına dön
+        </button>
+        <button onClick={() => router.push("/aispear/register")} className="m"
+          style={{ display: "block", margin: "10px auto 0", background: "none", border: "none", color: D.gold, fontSize: 12.5, cursor: "pointer" }}>
+          Hesabın yok mu? Kayıt ol
         </button>
       </div>
     </div>
