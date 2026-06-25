@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-guard';
 import { listUsers, createUser } from '@/lib/users-db';
+import { logAudit, ipOf } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,7 @@ export async function POST(req) {
   }
   try {
     const user = await createUser({ username: b.username, email: b.email, password: b.password, role: b.role });
+    await logAudit({ actorId: a.session.uid, action: 'user.create', target: user ? user.username : b.username, meta: { role: b.role || 'member' }, ip: ipOf(req) });
     return NextResponse.json({ ok: true, user });
   } catch (e) {
     const msg = String((e && e.message) || e);

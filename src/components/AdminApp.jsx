@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import RolesView from "./RolesView";
 import LiveView from "./LiveView";
+import AuditView from "./AuditView";
 
 /* VIP koyu tema — ORB ailesi, altın mızrak imzası */
 const D = {
@@ -21,7 +22,7 @@ const SECTIONS = [
   { id: "licenses", label: "Lisanslar", icon: KeyRound },
   { id: "roles", label: "Roller", icon: Shield },
   { id: "live", label: "Canlı", icon: Activity },
-  { id: "audit", label: "Denetim", icon: ScrollText, soon: true },
+  { id: "audit", label: "Denetim", icon: ScrollText },
 ];
 
 const STATUS = [
@@ -349,13 +350,8 @@ export default function AdminApp({ me }) {
           {/* ── Canlı ── */}
           {section === "live" && <LiveView />}
 
-          {/* ── Yakında bölümleri ── */}
-          {["audit"].includes(section) && (
-            <div style={{ background: D.surface, border: `1px dashed ${D.line}`, borderRadius: 16, padding: "48px 24px", textAlign: "center", color: D.muted }}>
-              <div style={{ fontSize: 16, color: D.ink, fontWeight: 600, marginBottom: 6 }}>{SECTIONS.find((s) => s.id === section)?.label} — yakında</div>
-              <div style={{ fontSize: 13.5 }}>Bu bölüm sıradaki adımda ekleniyor (lisans üret/ata/iptal, rol & izin matrisi, canlı oturumlar, denetim logu).</div>
-            </div>
-          )}
+          {/* ── Denetim ── */}
+          {section === "audit" && <AuditView />}
         </div>
       </main>
 

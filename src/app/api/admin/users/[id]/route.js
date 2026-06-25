@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-guard';
 import { updateUser, deleteUser, getUserById, roleById, countActiveAdmins } from '@/lib/users-db';
+import { logAudit, ipOf } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,7 @@ export async function PATCH(req, { params }) {
 
   try {
     const user = await updateUser(id, { status: b.status, roleId: b.roleId, password: b.password });
+    await logAudit({ actorId: a.session.uid, action: 'user.update', target: target.username, meta: { status: b.status, roleId: b.roleId, password: b.password ? true : undefined }, ip: ipOf(req) });
     return NextResponse.json({ ok: true, user });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String((e && e.message) || e) }, { status: 500 });
@@ -60,6 +62,7 @@ export async function DELETE(req, { params }) {
 
   try {
     await deleteUser(id);
+    await logAudit({ actorId: a.session.uid, action: 'user.delete', target: target.username, ip: ipOf(req) });
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String((e && e.message) || e) }, { status: 500 });

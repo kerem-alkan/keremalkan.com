@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-guard';
 import { listLicenses, createLicenses } from '@/lib/licenses-db';
+import { logAudit, ipOf } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,7 @@ export async function POST(req) {
   try { b = await req.json(); } catch {}
   try {
     const created = await createLicenses(b);
+    await logAudit({ actorId: a.session.uid, action: 'license.create', target: `${created.length} anahtar`, meta: { type: b.type, durationDays: b.durationDays, count: created.length, user: b.username || null }, ip: ipOf(req) });
     return NextResponse.json({ ok: true, created });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String((e && e.message) || e) }, { status: 400 });

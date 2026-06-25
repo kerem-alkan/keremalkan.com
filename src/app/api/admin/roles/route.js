@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-guard';
 import { listRolesFull, createRole, listFlags } from '@/lib/roles-db';
+import { logAudit, ipOf } from '@/lib/audit';
 import { FEATURES } from '@/lib/features';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,7 @@ export async function POST(req) {
   try { b = await req.json(); } catch {}
   try {
     const role = await createRole(b.name, b.isAdmin);
+    await logAudit({ actorId: a.session.uid, action: 'role.create', target: role ? role.name : b.name, meta: { isAdmin: !!b.isAdmin }, ip: ipOf(req) });
     return NextResponse.json({ ok: true, role });
   } catch (e) {
     const m = String((e && e.message) || e);
