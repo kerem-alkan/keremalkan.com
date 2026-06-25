@@ -15,6 +15,10 @@ export async function createRequest({ username, email, password, licenseKey, ip 
   if (await one('SELECT 1 FROM users WHERE username=$1', [username])) throw new Error('Bu kullanıcı adı alınmış');
   if (await one('SELECT 1 FROM users WHERE email=$1', [email])) throw new Error('Bu e-posta zaten kayıtlı');
 
+  // Aynı kullanıcı adı/e-posta için eski başvuruları temizle (reddedilmiş/bekleyen/doğrulanmamış).
+  // Buraya geldiysek users'ta kayıt yok demektir → bunlar ölü satır; yeniden kayıt tertemiz başlasın, satır birikmesin.
+  await q('DELETE FROM register_requests WHERE username=$1 OR email=$2', [username, email]);
+
   const token = randomBytes(24).toString('hex');
   return await one(
     `INSERT INTO register_requests (email, username, pass_hash, license_key, email_verified, verify_token, status, ip)

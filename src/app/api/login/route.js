@@ -74,7 +74,7 @@ async function pendingContext(username, password) {
   } catch { return null; }
   if (!r || !r.pass_hash || !verifyHash(password, r.pass_hash)) return null;
 
-  if (r.status === 'rejected') return 'Başvurun reddedildi. Yöneticiyle iletişime geçebilirsin.';
+  if (r.status === 'rejected') return 'Önceki başvurun reddedildi. İstersen yeniden kayıt olabilirsin.';
   if (r.status === 'approved') return null; // hesap oluşmuş olmalı; generic akışa bırak
   if (!r.email_verified) return 'Önce e-postanı doğrula. Gelen kutunu (ve spam) kontrol et; bağlantıya tıkladıktan sonra giriş yapabilirsin.';
   return 'Başvurun yönetici onayında. Onaylandığında giriş yapabilirsin.';
