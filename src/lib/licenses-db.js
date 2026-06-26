@@ -13,7 +13,7 @@ function genKey() {
 export async function listLicenses() {
   return await q(
     `SELECT l.id, l.key, l.type, l.status, l.starts_at, l.expires_at, l.seat_limit,
-            l.duration_days, l.notes, l.created_at, u.username AS owner
+            l.duration_days, l.notes, l.created_at, l.reactivation_requested_at, u.username AS owner
        FROM licenses l
        LEFT JOIN users u ON u.id = l.user_id
       ORDER BY l.created_at DESC`
@@ -66,7 +66,8 @@ export async function licenseAction(id, action, payload = {}) {
       const days = String(lic.duration_days || 30);
       return await one(
         `UPDATE licenses SET status='active', starts_at=now(),
-           expires_at = now() + ($1 || ' days')::interval, started_by_admin=true
+           expires_at = now() + ($1 || ' days')::interval, started_by_admin=true,
+           reactivation_requested_at=NULL
          WHERE id=$2 RETURNING id, status, expires_at`,
         [days, id]
       );
@@ -75,7 +76,7 @@ export async function licenseAction(id, action, payload = {}) {
       return await one("UPDATE licenses SET status='frozen' WHERE id=$1 RETURNING id, status", [id]);
     case 'resume':
       await assertSingleActive();
-      return await one("UPDATE licenses SET status='active' WHERE id=$1 RETURNING id, status", [id]);
+      return await one("UPDATE licenses SET status='active', reactivation_requested_at=NULL WHERE id=$1 RETURNING id, status", [id]);
     case 'revoke':
       return await one("UPDATE licenses SET status='revoked' WHERE id=$1 RETURNING id, status", [id]);
     case 'extend': {
@@ -126,4 +127,32 @@ export async function redeemLicense(userId, rawKey) {
     [userId, lic.id]
   );
   return { ok: true };
+}
+
+// Kullanıcının aktif olmayan en güncel lisansı (frozen/suspended/expired/pending) — launcher durum gösterimi için.
+export async function inactiveLicenseForUser(userId) {
+  return await one(
+    `SELECT id, status, expires_at, reactivation_requested_at
+       FROM licenses
+      WHERE user_id=$1 AND status <> 'revoked'
+      ORDER BY (status='frozen') DESC, (status='suspended') DESC, created_at DESC
+      LIMIT 1`,
+    [userId]
+  );
+}
+
+// Kullanıcı launcher'dan aktifleştirme talebi gönderir → dondurulmuş/askıdaki lisansa işaretlenir (admin yanıtlar).
+export async function requestReactivation(userId, note = null) {
+  const lic = await one(
+    `SELECT id, status, reactivation_requested_at FROM licenses
+      WHERE user_id=$1 AND status IN ('frozen','suspended')
+      ORDER BY created_at DESC LIMIT 1`,
+    [userId]
+  );
+  if (!lic) return { error: 'Aktifleştirme bekleyen (dondurulmuş/askıda) bir lisansın yok.' };
+  await q(
+    `UPDATE licenses SET reactivation_requested_at=now(), reactivation_note=$2 WHERE id=$1`,
+    [lic.id, note ? String(note).slice(0, 300) : null]
+  );
+  return { ok: true, alreadyRequested: !!lic.reactivation_requested_at };
 }

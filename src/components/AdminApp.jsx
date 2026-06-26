@@ -82,6 +82,9 @@ export default function AdminApp({ me }) {
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
   const [profileId, setProfileId] = useState(null);
+  const [licQ, setLicQ] = useState("");
+  const [licFilter, setLicFilter] = useState("all");
+  const [copiedKey, setCopiedKey] = useState("");
 
   const [showCreate, setShowCreate] = useState(false);
   const [cu, setCu] = useState({ username: "", email: "", password: "", role: "member" });
@@ -167,6 +170,13 @@ export default function AdminApp({ me }) {
     !q || u.username.toLowerCase().includes(q.toLowerCase()) || (u.email || "").toLowerCase().includes(q.toLowerCase())
   );
   const stats = meta.stats || {};
+  const daysTo = (d) => (d ? Math.ceil((new Date(d).getTime() - Date.now()) / 86400000) : null);
+  const filteredLicenses = licenses
+    .filter((l) => licFilter === "all" || l.status === licFilter)
+    .filter((l) => !licQ || (l.key || "").toLowerCase().includes(licQ.toLowerCase()) || (l.owner || "").toLowerCase().includes(licQ.toLowerCase()));
+  function copyKey(k) {
+    try { navigator.clipboard.writeText(k); setCopiedKey(k); setTimeout(() => setCopiedKey(""), 1200); } catch {}
+  }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: D.bg, color: D.ink,
@@ -263,9 +273,24 @@ export default function AdminApp({ me }) {
                   <div style={{ fontSize: 34, fontWeight: 700, marginTop: 8, color: c.c }}>{loading ? "·" : (c.v ?? 0)}</div>
                 </div>
               ))}
+              {(stats.reactivationRequests > 0 || stats.expiringSoon > 0) && (
+                <div style={{ gridColumn: "1 / -1", display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  {stats.reactivationRequests > 0 && (
+                    <button onClick={() => { setLicFilter("frozen"); setSection("licenses"); }}
+                      style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid rgba(245,158,11,0.45)`, background: "rgba(245,158,11,0.10)", color: "#F59E0B", borderRadius: 12, padding: "12px 16px", cursor: "pointer", fontSize: 13.5, fontWeight: 600 }}>
+                      ⚡ {stats.reactivationRequests} aktifleştirme talebi bekliyor →
+                    </button>
+                  )}
+                  {stats.expiringSoon > 0 && (
+                    <button onClick={() => { setLicFilter("active"); setSection("licenses"); }}
+                      style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid rgba(248,113,113,0.4)`, background: "rgba(248,113,113,0.08)", color: "#F87171", borderRadius: 12, padding: "12px 16px", cursor: "pointer", fontSize: 13.5, fontWeight: 600 }}>
+                      ⏳ {stats.expiringSoon} lisans 7 gün içinde dolacak →
+                    </button>
+                  )}
+                </div>
+              )}
               <div style={{ gridColumn: "1 / -1", marginTop: 8, color: D.muted, fontSize: 13.5, lineHeight: 1.6 }}>
-                Hoş geldin, <b style={{ color: D.ink }}>{me?.username}</b>. Buradan kullanıcıları yönetebilirsin.
-                Lisans, rol ve canlı izleme bölümleri sırayla ekleniyor.
+                Hoş geldin, <b style={{ color: D.ink }}>{me?.username}</b>. Kullanıcı adına tıklayıp profilini görebilir, lisansları ve özellikleri yönetebilirsin.
               </div>
             </div>
           )}
@@ -325,23 +350,45 @@ export default function AdminApp({ me }) {
 
           {/* ── Lisanslar ── */}
           {section === "licenses" && (
+            <>
+            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 14, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 9, background: D.surface, border: `1px solid ${D.line}`, borderRadius: 10, padding: "8px 12px", flex: 1, minWidth: 220, maxWidth: 340 }}>
+                <Search size={15} color={D.muted} />
+                <input value={licQ} onChange={(e) => setLicQ(e.target.value)} placeholder="Ara (anahtar / kullanıcı)"
+                  style={{ background: "none", border: "none", outline: "none", color: D.ink, fontSize: 14, width: "100%" }} />
+              </div>
+              <select value={licFilter} onChange={(e) => setLicFilter(e.target.value)} className="ai-in" style={{ width: "auto", padding: "9px 12px", fontSize: 13 }}>
+                <option value="all">Tüm durumlar</option>
+                <option value="active">Aktif</option>
+                <option value="pending_start">Beklemede</option>
+                <option value="frozen">Dondurulmuş</option>
+                <option value="expired">Süresi doldu</option>
+                <option value="revoked">İptal</option>
+              </select>
+              <span className="m" style={{ fontSize: 11.5, color: D.muted }}>{filteredLicenses.length} / {licenses.length}</span>
+            </div>
             <div style={{ background: D.surface, border: `1px solid ${D.line}`, borderRadius: 14, overflow: "hidden" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 0.9fr 1fr 0.9fr 1.5fr", gap: 8, padding: "12px 18px", borderBottom: `1px solid ${D.line}` }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr 0.9fr 1fr 0.9fr 1.4fr", gap: 8, padding: "12px 18px", borderBottom: `1px solid ${D.line}` }}>
                 {["ANAHTAR", "KULLANICI", "TİP", "DURUM", "BİTİŞ", "İŞLEM"].map((h, i) => (
                   <div key={i} className="m" style={{ fontSize: 10.5, letterSpacing: 1, color: D.muted }}>{h}</div>
                 ))}
               </div>
               {loading && <div style={{ padding: "24px 18px", color: D.muted }}>Yükleniyor…</div>}
-              {!loading && licenses.length === 0 && <div style={{ padding: "24px 18px", color: D.muted }}>Henüz lisans yok. Sağ üstten "Yeni lisans" ile üret.</div>}
-              {licenses.map((l, idx) => {
+              {!loading && filteredLicenses.length === 0 && <div style={{ padding: "24px 18px", color: D.muted }}>{licenses.length === 0 ? 'Henüz lisans yok. Sağ üstten "Yeni lisans" ile üret.' : "Filtreye uyan lisans yok."}</div>}
+              {filteredLicenses.map((l, idx) => {
                 const st = licSt(l.status);
+                const dleft = daysTo(l.expires_at);
+                const soon = l.status === "active" && dleft != null && dleft <= 7;
                 return (
-                  <div key={l.id} className="row" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 0.9fr 1fr 0.9fr 1.5fr", gap: 8, alignItems: "center", padding: "11px 18px", borderTop: idx === 0 ? "none" : `1px solid ${D.line}` }}>
-                    <div className="m" style={{ fontSize: 12, color: D.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.key}</div>
+                  <div key={l.id} className="row" style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr 0.9fr 1fr 0.9fr 1.4fr", gap: 8, alignItems: "center", padding: "11px 18px", borderTop: idx === 0 ? "none" : `1px solid ${D.line}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                      <span className="m" onClick={() => copyKey(l.key)} title="Kopyala" style={{ fontSize: 12, color: copiedKey === l.key ? D.green : D.ink, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{copiedKey === l.key ? "✓ kopyalandı" : l.key}</span>
+                      {l.reactivation_requested_at && <span title="Aktifleştirme talebi var" style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 700, color: "#1a1206", background: D.gold, borderRadius: 99, padding: "1px 7px" }}>TALEP</span>}
+                    </div>
                     <div style={{ fontSize: 13, color: l.owner ? D.ink : D.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.owner || "atanmamış"}</div>
                     <div className="m" style={{ fontSize: 11.5, color: D.muted }}>{l.type}{l.duration_days ? ` · ${l.duration_days}g` : ""}</div>
                     <div style={{ fontSize: 12.5, color: st.c }}>{st.l}</div>
-                    <div style={{ fontSize: 12, color: D.muted }}>{fmtDate(l.expires_at)}</div>
+                    <div style={{ fontSize: 12, color: soon ? "#F87171" : D.muted }}>{fmtDate(l.expires_at)}{soon ? ` · ${dleft}g` : ""}</div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {l.status === "pending_start" && <ActBtn onClick={() => licAction(l.id, "start")}>Başlat</ActBtn>}
                       {l.status === "active" && <ActBtn onClick={() => licAction(l.id, "freeze")}>Dondur</ActBtn>}
@@ -354,6 +401,7 @@ export default function AdminApp({ me }) {
                 );
               })}
             </div>
+            </>
           )}
 
           {/* ── Roller & izinler ── */}

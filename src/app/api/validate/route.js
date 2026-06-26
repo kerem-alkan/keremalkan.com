@@ -7,6 +7,7 @@ import { q, one } from '@/lib/db';
 import { recordHeartbeat } from '@/lib/sessions-db';
 import { listFlags } from '@/lib/roles-db';
 import { effectiveFeatures } from '@/lib/access';
+import { inactiveLicenseForUser } from '@/lib/licenses-db';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +47,17 @@ export async function POST(req) {
       ORDER BY expires_at DESC NULLS LAST LIMIT 1`,
     [u.id]
   );
-  if (!u.is_admin && !lic) return J({ ok: false, reason: 'license' }, 403);
+  if (!u.is_admin && !lic) {
+    let info = null;
+    try { info = await inactiveLicenseForUser(u.id); } catch {}
+    if (info && (info.status === 'frozen' || info.status === 'suspended')) {
+      return J({ ok: false, reason: 'frozen', licenseStatus: info.status, reactivationPending: !!info.reactivation_requested_at }, 403);
+    }
+    if (info && info.status === 'expired') {
+      return J({ ok: false, reason: 'expired', licenseStatus: 'expired' }, 403);
+    }
+    return J({ ok: false, reason: 'license' }, 403);
+  }
 
   const permRows = await q('SELECT feature_key, allowed FROM role_permissions WHERE role_id=$1', [u.role_id]);
   const rolePerms = {};

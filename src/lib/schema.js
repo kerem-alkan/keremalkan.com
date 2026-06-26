@@ -118,6 +118,8 @@ export const DDL = [
   )`,
 
   `ALTER TABLE licenses ADD COLUMN IF NOT EXISTS duration_days INTEGER`,
+  `ALTER TABLE licenses ADD COLUMN IF NOT EXISTS reactivation_requested_at TIMESTAMPTZ`,
+  `ALTER TABLE licenses ADD COLUMN IF NOT EXISTS reactivation_note TEXT`,
 ];
 
 // Varsayılan roller

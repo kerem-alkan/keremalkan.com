@@ -94,6 +94,8 @@ export async function getStats() {
     activeLicenses: await safe("SELECT count(*)::int AS n FROM licenses WHERE status='active'"),
     pendingRequests: await safe("SELECT count(*)::int AS n FROM register_requests WHERE status='pending'"),
     online: await safe("SELECT count(*)::int AS n FROM sessions WHERE online=true AND last_heartbeat > now() - interval '25 seconds'"),
+    expiringSoon: await safe("SELECT count(*)::int AS n FROM licenses WHERE status='active' AND expires_at IS NOT NULL AND expires_at > now() AND expires_at < now() + interval '7 days'"),
+    reactivationRequests: await safe("SELECT count(*)::int AS n FROM licenses WHERE reactivation_requested_at IS NOT NULL"),
   };
 }
 
