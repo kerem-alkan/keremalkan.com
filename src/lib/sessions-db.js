@@ -38,16 +38,24 @@ export async function recordHeartbeat({ userId, fingerprint, ip, country, city }
   return { concurrentDevices: conc ? conc.n : 1 };
 }
 
+// Kullanıcı başına TEK satır (en son oturum) — eski oturumlar tekrar listelenmez.
+// active_devices: son 25 sn'de aktif farklı cihaz sayısı (paylaşım tespiti).
 export async function listLive() {
   return await q(
-    `SELECT s.id, s.ip, s.country, s.city, s.started_at, s.last_heartbeat,
-            u.id AS user_id, u.username, d.fingerprint,
-            (s.last_heartbeat > now() - interval '2 minutes') AS online
-       FROM sessions s
-       JOIN users u ON u.id = s.user_id
-       LEFT JOIN devices d ON d.id = s.device_id
-      WHERE s.last_heartbeat > now() - interval '45 minutes'
-      ORDER BY s.last_heartbeat DESC
-      LIMIT 200`
+    `SELECT * FROM (
+       SELECT DISTINCT ON (u.id)
+              s.id, s.ip, s.country, s.city, s.started_at, s.last_heartbeat,
+              u.id AS user_id, u.username, d.fingerprint,
+              (s.last_heartbeat > now() - interval '25 seconds') AS online,
+              (SELECT count(DISTINCT dv.id)::int FROM devices dv
+                 WHERE dv.user_id = u.id AND dv.last_seen > now() - interval '25 seconds') AS active_devices
+         FROM sessions s
+         JOIN users u ON u.id = s.user_id
+         LEFT JOIN devices d ON d.id = s.device_id
+        WHERE s.last_heartbeat > now() - interval '6 hours'
+        ORDER BY u.id, s.last_heartbeat DESC
+     ) t
+     ORDER BY t.online DESC, t.last_heartbeat DESC
+     LIMIT 200`
   );
 }

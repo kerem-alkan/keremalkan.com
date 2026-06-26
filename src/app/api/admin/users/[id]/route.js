@@ -1,7 +1,7 @@
 // AISpear admin — kullanıcı güncelle (PATCH) + sil (DELETE). Kilitlenme/rogue korumaları.
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-guard';
-import { updateUser, deleteUser, getUserById, roleById, countActiveAdmins } from '@/lib/users-db';
+import { updateUser, deleteUser, getUserById, roleById, countActiveAdmins, getUserProfile } from '@/lib/users-db';
 import { logAudit, ipOf } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,21 @@ function isSelf(session, target) {
   if (session.uid && target.id === session.uid) return true;
   if (session.username && target.username && session.username === target.username) return true;
   return false;
+}
+
+// Üye profili (lisanslar + cihazlar + oturumlar).
+export async function GET(req, { params }) {
+  const a = await requireAdmin();
+  if (!a.ok) return NextResponse.json({ ok: false, error: a.error }, { status: a.status });
+  const id = parseInt(params.id, 10);
+  if (!id) return NextResponse.json({ ok: false, error: 'Geçersiz id' }, { status: 400 });
+  try {
+    const profile = await getUserProfile(id);
+    if (!profile) return NextResponse.json({ ok: false, error: 'Kullanıcı yok' }, { status: 404 });
+    return NextResponse.json({ ok: true, ...profile });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: String((e && e.message) || e) }, { status: 500 });
+  }
 }
 
 export async function PATCH(req, { params }) {

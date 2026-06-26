@@ -3,12 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   LayoutDashboard, Users as UsersIcon, KeyRound, Shield, Activity, ScrollText, Inbox,
-  LogOut, Plus, Trash2, X, Search, RefreshCw, Wand2,
+  LogOut, Plus, Trash2, X, Search, RefreshCw, Wand2, SlidersHorizontal,
 } from "lucide-react";
 import RolesView from "./RolesView";
 import LiveView from "./LiveView";
 import AuditView from "./AuditView";
 import RequestsView from "./RequestsView";
+import FlagsView from "./FlagsView";
+import UserProfile from "./UserProfile";
 
 /* VIP koyu tema — ORB ailesi, altın mızrak imzası */
 const D = {
@@ -23,6 +25,7 @@ const SECTIONS = [
   { id: "requests", label: "Onaylar", icon: Inbox },
   { id: "licenses", label: "Lisanslar", icon: KeyRound },
   { id: "roles", label: "Roller", icon: Shield },
+  { id: "features", label: "Özellikler", icon: SlidersHorizontal },
   { id: "live", label: "Canlı", icon: Activity },
   { id: "audit", label: "Denetim", icon: ScrollText },
 ];
@@ -78,6 +81,7 @@ export default function AdminApp({ me }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
+  const [profileId, setProfileId] = useState(null);
 
   const [showCreate, setShowCreate] = useState(false);
   const [cu, setCu] = useState({ username: "", email: "", password: "", role: "member" });
@@ -171,6 +175,8 @@ export default function AdminApp({ me }) {
         .ai-in{background:${D.bg};border:1px solid ${D.line};border-radius:9px;padding:10px 12px;color:${D.ink};font-size:14px;width:100%}
         .ai-in:focus{outline:none;border-color:${D.gold}}
         .row:hover{background:rgba(124,58,237,0.06)}
+        .uname{cursor:pointer}
+        .uname:hover{color:${D.gold};text-decoration:underline}
         button{font-family:inherit}`}</style>
 
       {/* ── Sidebar ── */}
@@ -287,7 +293,7 @@ export default function AdminApp({ me }) {
                   <div key={u.id} className="row" style={{ display: "grid", gridTemplateColumns: "1.4fr 1.6fr 1fr 1.1fr 0.7fr 40px", gap: 8, alignItems: "center",
                     padding: "11px 18px", borderTop: idx === 0 ? "none" : `1px solid ${D.line}` }}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.username}</div>
+                      <div className="uname" onClick={() => setProfileId(u.id)} title="Profili aç" style={{ fontSize: 14.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.username}</div>
                       <div className="m" style={{ fontSize: 10.5, color: D.muted }}>{u.last_login_at ? "son giriş " + new Date(u.last_login_at).toLocaleDateString("tr-TR") : "hiç girmedi"}</div>
                     </div>
                     <div className="m" style={{ fontSize: 12.5, color: D.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.email || "—"}</div>
@@ -352,6 +358,9 @@ export default function AdminApp({ me }) {
 
           {/* ── Roller & izinler ── */}
           {section === "roles" && <RolesView />}
+
+          {/* ── Özellikler & bakım ── */}
+          {section === "features" && <FlagsView />}
 
           {/* ── Canlı ── */}
           {section === "live" && <LiveView />}
@@ -449,6 +458,8 @@ export default function AdminApp({ me }) {
           </div>
         </div>
       )}
+
+      {profileId && <UserProfile userId={profileId} onClose={() => setProfileId(null)} />}
     </div>
   );
 }

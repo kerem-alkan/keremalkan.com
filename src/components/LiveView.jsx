@@ -25,19 +25,24 @@ export default function LiveView() {
   const [online, setOnline] = useState(0);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const load = useCallback(async () => {
+    setRefreshing(true);
     try {
-      const d = await fetch("/api/admin/live").then((r) => r.json());
-      if (d.ok) { setSessions(d.sessions || []); setOnline(d.onlineCount || 0); }
+      const d = await fetch("/api/admin/live", { cache: "no-store" }).then((r) => r.json());
+      if (d.ok) { setSessions(d.sessions || []); setOnline(d.onlineCount || 0); setErr(""); }
       else setErr(d.error || "Yüklenemedi");
     } catch { setErr("Bağlantı hatası"); }
+    setLastUpdated(Date.now());
     setLoading(false);
+    setRefreshing(false);
   }, []);
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 15000);
+    const t = setInterval(load, 8000);
     return () => clearInterval(t);
   }, [load]);
 
@@ -48,8 +53,14 @@ export default function LiveView() {
           <span style={{ width: 9, height: 9, borderRadius: 99, background: online ? D.green : D.muted, boxShadow: online ? `0 0 8px ${D.green}` : "none" }} />
           <b>{online}</b> çevrimiçi
         </span>
-        <button onClick={load} style={{ background: "none", border: `1px solid ${D.line}`, borderRadius: 8, padding: 6, color: D.muted, cursor: "pointer", display: "flex" }}><RefreshCw size={14} /></button>
-        <span className="m" style={{ fontSize: 11, color: D.muted }}>15 sn'de bir yenilenir</span>
+        <button onClick={load} disabled={refreshing} title="Şimdi yenile"
+          style={{ background: refreshing ? "rgba(124,58,237,0.12)" : "none", border: `1px solid ${D.line}`, borderRadius: 8, padding: 6, color: refreshing ? D.gold : D.muted, cursor: refreshing ? "default" : "pointer", display: "flex" }}>
+          <RefreshCw size={14} style={refreshing ? { animation: "ka-spin 0.6s linear infinite" } : undefined} />
+        </button>
+        <span className="m" style={{ fontSize: 11, color: D.muted }}>
+          {refreshing ? "yenileniyor…" : (lastUpdated ? "son güncelleme " + new Date(lastUpdated).toLocaleTimeString("tr-TR") : "8 sn'de bir yenilenir")}
+        </span>
+        <style>{`@keyframes ka-spin{to{transform:rotate(360deg)}}`}</style>
       </div>
 
       {err && <div style={{ color: "#F87171", marginBottom: 12 }}>{err}</div>}

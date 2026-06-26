@@ -4,11 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { Shield, Plus, Trash2, X } from "lucide-react";
 
 const D = { bg: "#0B0710", surface: "#171123", surface2: "#1F1733", line: "#2A2140", ink: "#ECE9F2", muted: "#8B86A0", gold: "#E8B04B", goldDark: "#C6952F", green: "#34D399" };
-const FLAGS = [
-  { v: "on", l: "Açık", c: "#34D399" },
-  { v: "maintenance", l: "Bakım", c: "#F59E0B" },
-  { v: "off", l: "Kapalı", c: "#F87171" },
-];
 
 export default function RolesView() {
   const [data, setData] = useState({ roles: [], features: [], flags: {} });
@@ -38,10 +33,6 @@ export default function RolesView() {
     await fetch(`/api/admin/roles/${sel}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ featureKey, allowed }) });
     load();
   }
-  async function setFlag(featureKey, state) {
-    await fetch("/api/admin/flags", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ featureKey, state }) });
-    load();
-  }
   async function createRole() {
     const r = await fetch("/api/admin/roles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(nr) });
     const d = await r.json();
@@ -60,6 +51,10 @@ export default function RolesView() {
   return (
     <div>
       {err && <div style={{ color: "#F87171", marginBottom: 12 }}>{err}</div>}
+
+      <div style={{ fontSize: 12.5, color: D.muted, marginBottom: 14, lineHeight: 1.5 }}>
+        Roller, kullanıcıların <b style={{ color: D.ink }}>hangi özelliklere erişebileceğini</b> belirler. (Genel bakım/açma-kapama ayarları artık <b style={{ color: D.gold }}>Özellikler</b> sekmesinde.)
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "230px 1fr", gap: 16, alignItems: "start" }}>
         {/* Roller listesi */}
@@ -106,31 +101,6 @@ export default function RolesView() {
             </>
           )}
         </div>
-      </div>
-
-      {/* Genel bakım bayrakları */}
-      <div style={{ marginTop: 16, background: D.surface, border: `1px solid ${D.line}`, borderRadius: 14, padding: 18 }}>
-        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Genel özellik / bakım bayrakları</div>
-        <div style={{ fontSize: 12.5, color: D.muted, marginBottom: 14 }}>
-          Bir özelliği "Bakım" veya "Kapalı" yaparsan, role bakılmaksızın <b style={{ color: D.ink }}>herkeste</b> devre dışı kalır (heartbeat ile).
-        </div>
-        {data.features.map((f) => {
-          const st = data.flags[f.key] || "on";
-          return (
-            <div key={f.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderTop: `1px solid ${D.line}` }}>
-              <span style={{ fontSize: 14 }}>{f.label}</span>
-              <div style={{ display: "flex", border: `1px solid ${D.line}`, borderRadius: 8, overflow: "hidden" }}>
-                {FLAGS.map((fl) => (
-                  <button key={fl.v} onClick={() => setFlag(f.key, fl.v)} className="m"
-                    style={{ padding: "6px 11px", fontSize: 11.5, border: "none", cursor: "pointer",
-                      background: st === fl.v ? fl.c : "transparent", color: st === fl.v ? "#1a1206" : D.muted }}>
-                    {fl.l}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
       </div>
 
       {showCreate && (

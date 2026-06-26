@@ -1,5 +1,6 @@
 // AISpear — rol & izin + genel özellik bayrağı veri katmanı.
 import { q, one } from '@/lib/db';
+import { FEATURES } from '@/lib/features';
 
 export async function listRolesFull() {
   const roles = await q('SELECT id, name, is_admin FROM roles ORDER BY id');
@@ -51,4 +52,17 @@ export async function setFlag(featureKey, state) {
      ON CONFLICT (feature_key) DO UPDATE SET state=$2, updated_at=now() RETURNING feature_key`,
     [featureKey, state]
   );
+}
+
+// Tüm özellikleri tek seferde bir duruma çek (genel bakım / hepsini aç).
+export async function setAllFlags(state) {
+  if (!['on', 'maintenance', 'off'].includes(state)) throw new Error('Geçersiz durum');
+  for (const f of FEATURES) {
+    await q(
+      `INSERT INTO feature_flags (feature_key, state, updated_at) VALUES ($1,$2,now())
+       ON CONFLICT (feature_key) DO UPDATE SET state=$2, updated_at=now()`,
+      [f.key, state]
+    );
+  }
+  return { count: FEATURES.length, state };
 }

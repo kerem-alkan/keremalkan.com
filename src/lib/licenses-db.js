@@ -49,10 +49,20 @@ export async function createLicenses({ type = 'time', durationDays = 30, seatLim
 }
 
 export async function licenseAction(id, action, payload = {}) {
-  const lic = await one('SELECT id, duration_days FROM licenses WHERE id=$1', [id]);
+  const lic = await one('SELECT id, duration_days, user_id FROM licenses WHERE id=$1', [id]);
   if (!lic) throw new Error('Lisans yok');
+  // Kullanıcı başına tek aktif lisans: aktifleştirmeden önce başka aktif lisans var mı?
+  const assertSingleActive = async () => {
+    if (!lic.user_id) return;
+    const other = await one(
+      "SELECT id FROM licenses WHERE user_id=$1 AND status='active' AND id<>$2 LIMIT 1",
+      [lic.user_id, id]
+    );
+    if (other) throw new Error('Bu kullanıcının zaten aktif bir lisansı var (aynı anda tek lisans). Önce onu dondur/iptal et.');
+  };
   switch (action) {
     case 'start': {
+      await assertSingleActive();
       const days = String(lic.duration_days || 30);
       return await one(
         `UPDATE licenses SET status='active', starts_at=now(),
@@ -64,6 +74,7 @@ export async function licenseAction(id, action, payload = {}) {
     case 'freeze':
       return await one("UPDATE licenses SET status='frozen' WHERE id=$1 RETURNING id, status", [id]);
     case 'resume':
+      await assertSingleActive();
       return await one("UPDATE licenses SET status='active' WHERE id=$1 RETURNING id, status", [id]);
     case 'revoke':
       return await one("UPDATE licenses SET status='revoked' WHERE id=$1 RETURNING id, status", [id]);
