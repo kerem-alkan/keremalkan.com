@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
 
 /* Açık kabuk tokenları (site yüzü — Apple açık tema) */
 const L = { bg: "#f5f5f7", surface: "#ffffff", ink: "#1d1d1f", gray: "#6e6e73", faint: "#86868b", line: "#d2d2d7" };
@@ -71,8 +72,19 @@ export default function AISpearPage() {
   return (
     <div style={{ minHeight: "100vh", background: L.bg, color: L.ink,
       fontFamily: "ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" }}>
-      <style>{`.m{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace}
-        a.aslink{color:inherit;text-decoration:none}`}</style>
+      <style dangerouslySetInnerHTML={{ __html: `.m{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace}
+        a.aslink{color:inherit;text-decoration:none}
+        .feat-card{transition:transform .3s cubic-bezier(.22,1,.36,1),box-shadow .4s ease,border-color .4s ease}
+        .feat-card:hover{transform:translateY(-4px);box-shadow:0 16px 36px -20px rgba(20,20,30,.22);border-color:#bcbcc4}
+        .cta-block{transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .5s ease}
+        .cta-block:hover{transform:translateY(-3px);box-shadow:0 30px 60px -28px rgba(30,20,10,.5)}
+        .cta-arrow{display:inline-flex;transition:transform .35s cubic-bezier(.22,1,.36,1)}
+        .cta-block:hover .cta-arrow{transform:translateX(5px)}
+        .darkhero-img{transition:transform .6s cubic-bezier(.22,1,.36,1)}
+        .darkhero:hover .darkhero-img{transform:scale(1.04)}
+        .tagpill{transition:border-color .3s ease,color .3s ease}
+        .tagpill:hover{border-color:#9a9aa2;color:#1d1d1f}
+        @media (prefers-reduced-motion:reduce){.feat-card,.cta-block,.cta-arrow,.darkhero-img,.tagpill{transition:none}}` }} />
 
       <nav style={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", gap: 12,
         padding: "16px 24px", background: "rgba(245,245,247,0.8)", backdropFilter: "blur(14px)", borderBottom: `1px solid ${L.line}` }}>
@@ -99,17 +111,20 @@ export default function AISpearPage() {
         </button>
 
         <div className="m" style={{ fontSize: 12, letterSpacing: 2, color: L.faint, marginBottom: 14 }}>{t.eyebrow}</div>
-        <h1 style={{ fontSize: "clamp(36px,7vw,64px)", fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1.05, color: L.ink, margin: 0 }}>AISpear</h1>
-        <p style={{ fontSize: "clamp(18px,2.5vw,22px)", color: L.gray, lineHeight: 1.5, marginTop: 22, maxWidth: 640 }}>{t.lead}</p>
+        <motion.h1 initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          style={{ fontSize: "clamp(36px,7vw,64px)", fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1.05, color: L.ink, margin: 0 }}>AISpear</motion.h1>
+        <motion.p initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+          style={{ fontSize: "clamp(18px,2.5vw,22px)", color: L.gray, lineHeight: 1.5, marginTop: 22, maxWidth: 640 }}>{t.lead}</motion.p>
 
         {/* koyu hero (mızrak) */}
-        <div style={{ marginTop: 32, borderRadius: 20, overflow: "hidden", border: `1px solid ${L.line}`, position: "relative",
+        <motion.div className="darkhero" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.16, ease: [0.22, 1, 0.36, 1] }}
+          style={{ marginTop: 32, borderRadius: 20, overflow: "hidden", border: `1px solid ${L.line}`, position: "relative",
           background: "radial-gradient(120% 140% at 50% 0%, #1F1733, #0B0710 60%, #0E0A14)", minHeight: 220,
           display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ position: "absolute", inset: 0, opacity: 0.6,
             background: "radial-gradient(40% 60% at 72% 75%, rgba(232,176,75,0.30), transparent), radial-gradient(44% 55% at 22% 25%, rgba(124,58,237,0.40), transparent)" }} />
-          <img src="/aispear-wordmark.svg" alt="AISpear" style={{ position: "relative", width: "100%", maxWidth: 360, height: "auto", color: "#ECE9F2", filter: "drop-shadow(0 0 18px rgba(232,176,75,0.35))" }} />
-        </div>
+          <img className="darkhero-img" src="/aispear-wordmark.svg" alt="AISpear" style={{ position: "relative", width: "100%", maxWidth: 360, height: "auto", color: "#ECE9F2", filter: "drop-shadow(0 0 18px rgba(232,176,75,0.35))" }} />
+        </motion.div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, margin: "40px 0", borderTop: `1px solid ${L.line}`, borderBottom: `1px solid ${L.line}`, padding: "24px 0" }}>
           {t.meta.map(([k, v]) => (
@@ -127,22 +142,25 @@ export default function AISpearPage() {
 
         {/* özellik üçlüsü */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginTop: 32 }}>
-          {t.feat.map(([h, d]) => (
-            <div key={h} style={{ border: `1px solid ${L.line}`, borderRadius: 14, padding: "16px 16px", background: L.surface }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: L.ink, marginBottom: 6 }}>{h}</div>
-              <div style={{ fontSize: 13.5, color: L.gray, lineHeight: 1.45 }}>{d}</div>
-            </div>
+          {t.feat.map(([h, d], idx) => (
+            <motion.div key={h} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.55, delay: idx * 0.08, ease: [0.22, 1, 0.36, 1] }} style={{ display: "flex" }}>
+              <div className="feat-card" style={{ width: "100%", border: `1px solid ${L.line}`, borderRadius: 14, padding: "16px 16px", background: L.surface }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: L.ink, marginBottom: 6 }}>{h}</div>
+                <div style={{ fontSize: 13.5, color: L.gray, lineHeight: 1.45 }}>{d}</div>
+              </div>
+            </motion.div>
           ))}
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 28 }}>
           {["Python", "Vision / OpenCV", "VLM", "Tauri (.exe)", "JWT lisans", "Next.js"].map((tag) => (
-            <span key={tag} className="m" style={{ fontSize: 12, color: L.gray, border: `1px solid ${L.line}`, borderRadius: 99, padding: "6px 13px" }}>{tag}</span>
+            <span key={tag} className="m tagpill" style={{ fontSize: 12, color: L.gray, border: `1px solid ${L.line}`, borderRadius: 99, padding: "6px 13px" }}>{tag}</span>
           ))}
         </div>
 
         {/* koyu CTA → giriş */}
-        <button onClick={() => router.push("/aispear/login")}
+        <button onClick={() => router.push("/aispear/login")} className="cta-block"
           style={{ width: "100%", marginTop: 44, border: "none", borderRadius: 20, padding: "30px 28px", cursor: "pointer", position: "relative", overflow: "hidden",
             background: "radial-gradient(120% 140% at 30% 10%, #1F1733 0%, #0B0710 55%, #0E0A14 100%)", textAlign: "left" }}>
           <div style={{ position: "absolute", inset: 0, opacity: 0.55,
@@ -154,7 +172,7 @@ export default function AISpearPage() {
               <div style={{ fontSize: 21, fontWeight: 600, color: "#fff", letterSpacing: "-0.01em" }}>{t.ctaTitle}</div>
               <div style={{ fontSize: 13, color: "#8B86A0", marginTop: 4 }}>{t.ctaSub}</div>
             </div>
-            <ArrowRight size={22} color="#fff" />
+            <span className="cta-arrow"><ArrowRight size={22} color="#fff" /></span>
           </div>
         </button>
       </div>

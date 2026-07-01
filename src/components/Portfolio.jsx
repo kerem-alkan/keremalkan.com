@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ArrowUpRight, Instagram, Github, Linkedin } from "lucide-react";
 import ParticleField from "@/components/webgl/ParticleField";
+import { motion } from "framer-motion";
 
 /* ============================== TOKENS ============================== */
 const L = { bg: "#f5f5f7", surface: "#ffffff", ink: "#1d1d1f", gray: "#6e6e73", faint: "#86868b", line: "#d2d2d7", accent: "#0066cc" };
@@ -102,54 +103,80 @@ function OrbMark({ size = 96, glow = true, gid = "orb" }) {
 }
 
 /* ============================== PORTFOLIO (light shell) ============================== */
-function ProjectCard({ p, onOpen, lang }) {
+function ProjectCard({ p, onOpen, lang, i = 0 }) {
   const router = useRouter();
+  const ref = useRef(null);
   const open = () => {
     if (p.href) router.push(p.href);
     else if (p.live) onOpen("case");
   };
+  // Fareyle nazik 3B tilt + spotlight konumu (yalnızca canlı kartlarda)
+  const onMove = (e) => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    el.style.setProperty("--mx", `${px * 100}%`);
+    el.style.setProperty("--my", `${py * 100}%`);
+    if (p.live)
+      el.style.transform = `perspective(1000px) rotateX(${(0.5 - py) * 5}deg) rotateY(${(px - 0.5) * 5}deg) translateY(-6px)`;
+  };
+  const onLeave = () => {
+    const el = ref.current;
+    if (el) el.style.transform = "";
+  };
+
   return (
-    <button onClick={open}
-      style={{ textAlign: "left", border: `1px solid ${L.line}`, borderRadius: 18, padding: 0, overflow: "hidden",
-        background: L.surface, cursor: p.live ? "pointer" : "default", display: "flex", flexDirection: "column" }}>
-      <div style={{ height: 150, position: "relative", overflow: "hidden",
-        background: p.id === "craftabyss"
-          ? "radial-gradient(120% 120% at 30% 20%, #1b1030 0%, #07060b 55%, #1a0508 100%)"
-          : p.id === "aispear"
-          ? "radial-gradient(120% 120% at 30% 20%, #1F1733 0%, #0B0710 55%, #0E0A14 100%)"
-          : "linear-gradient(135deg,#ededf0,#f7f7f9)" }}>
-        {p.id === "craftabyss" && (
-          <>
-            <div style={{ position: "absolute", inset: 0, opacity: 0.5,
-              background: "radial-gradient(40% 60% at 70% 70%, rgba(45,212,191,0.4), transparent), radial-gradient(40% 50% at 25% 30%, rgba(168,85,247,0.45), transparent)" }} />
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <img src="/calogo-web.png" alt="CraftAbyss" style={{ width: "100%", height: "100%", objectFit: "contain", padding: "8px 0" }} />
-            </div>
-          </>
-        )}
-        {p.id === "aispear" && (
-          <>
-            <div style={{ position: "absolute", inset: 0, opacity: 0.6,
-              background: "radial-gradient(42% 60% at 72% 72%, rgba(232,176,75,0.38), transparent), radial-gradient(44% 55% at 24% 28%, rgba(124,58,237,0.42), transparent)" }} />
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <img src="/aispear-mark.svg" alt="AISpear" style={{ height: 82, width: "auto", filter: "drop-shadow(0 0 14px rgba(232,176,75,0.5))" }} />
-            </div>
-          </>
-        )}
-        {p.live && (
-          <span className="m" style={{ position: "absolute", top: 12, right: 12, fontSize: 10, letterSpacing: 1, color: "#fff",
-            background: "rgba(52,211,153,0.18)", border: "1px solid rgba(52,211,153,0.5)", padding: "4px 9px", borderRadius: 99 }}>● LIVE</span>
-        )}
-      </div>
-      <div style={{ padding: "18px 20px 20px" }}>
-        <div className="m" style={{ fontSize: 11, letterSpacing: 1.5, color: L.faint, marginBottom: 8 }}>{p.no} · {p.tag[lang]}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 22, fontWeight: 600, color: L.ink, letterSpacing: "-0.02em" }}>{p.title}</span>
-          {p.live && <ArrowUpRight size={18} color={L.ink} />}
+    <motion.div
+      initial={{ opacity: 0, y: 26 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: i * 0.07 }}
+      style={{ display: "flex" }}
+    >
+      <button ref={ref} onClick={open} onMouseMove={onMove} onMouseLeave={onLeave} className="wcard"
+        style={{ width: "100%", textAlign: "left", border: `1px solid ${L.line}`, borderRadius: 18, padding: 0, overflow: "hidden",
+          background: L.surface, cursor: p.live ? "pointer" : "default", display: "flex", flexDirection: "column", position: "relative" }}>
+        <div style={{ height: 150, position: "relative", overflow: "hidden", zIndex: 1,
+          background: p.id === "craftabyss"
+            ? "radial-gradient(120% 120% at 30% 20%, #1b1030 0%, #07060b 55%, #1a0508 100%)"
+            : p.id === "aispear"
+            ? "radial-gradient(120% 120% at 30% 20%, #1F1733 0%, #0B0710 55%, #0E0A14 100%)"
+            : "linear-gradient(135deg,#ededf0,#f7f7f9)" }}>
+          {p.id === "craftabyss" && (
+            <>
+              <div style={{ position: "absolute", inset: 0, opacity: 0.5,
+                background: "radial-gradient(40% 60% at 70% 70%, rgba(45,212,191,0.4), transparent), radial-gradient(40% 50% at 25% 30%, rgba(168,85,247,0.45), transparent)" }} />
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <img className="wthumb-img" src="/calogo-web.png" alt="CraftAbyss" style={{ width: "100%", height: "100%", objectFit: "contain", padding: "8px 0" }} />
+              </div>
+            </>
+          )}
+          {p.id === "aispear" && (
+            <>
+              <div style={{ position: "absolute", inset: 0, opacity: 0.6,
+                background: "radial-gradient(42% 60% at 72% 72%, rgba(232,176,75,0.38), transparent), radial-gradient(44% 55% at 24% 28%, rgba(124,58,237,0.42), transparent)" }} />
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <img className="wthumb-img" src="/aispear-mark.svg" alt="AISpear" style={{ height: 82, width: "auto", filter: "drop-shadow(0 0 14px rgba(232,176,75,0.5))" }} />
+              </div>
+            </>
+          )}
+          {p.live && (
+            <span className="m" style={{ position: "absolute", top: 12, right: 12, fontSize: 10, letterSpacing: 1, color: "#fff",
+              background: "rgba(52,211,153,0.18)", border: "1px solid rgba(52,211,153,0.5)", padding: "4px 9px", borderRadius: 99 }}>● LIVE</span>
+          )}
         </div>
-        <div style={{ fontSize: 15, color: L.gray, marginTop: 6, lineHeight: 1.45 }}>{p.blurb[lang]}</div>
-      </div>
-    </button>
+        <div style={{ padding: "18px 20px 20px", position: "relative", zIndex: 1 }}>
+          <div className="m" style={{ fontSize: 11, letterSpacing: 1.5, color: L.faint, marginBottom: 8 }}>{p.no} · {p.tag[lang]}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 22, fontWeight: 600, color: L.ink, letterSpacing: "-0.02em" }}>{p.title}</span>
+            {p.live && <span className="warrow"><ArrowUpRight size={18} color={L.ink} /></span>}
+          </div>
+          <div style={{ fontSize: 15, color: L.gray, marginTop: 6, lineHeight: 1.45 }}>{p.blurb[lang]}</div>
+        </div>
+      </button>
+    </motion.div>
   );
 }
 
@@ -217,7 +244,7 @@ function Home({ onOpen, gridRef, lang }) {
           <span className="m" style={{ fontSize: 12, letterSpacing: 1.5, color: L.faint }}>2026</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 18 }}>
-          {PROJECTS.map((p) => <ProjectCard key={p.id} p={p} onOpen={onOpen} lang={lang} />)}
+          {PROJECTS.map((p, i) => <ProjectCard key={p.id} p={p} onOpen={onOpen} lang={lang} i={i} />)}
         </div>
       </section>
 
@@ -325,6 +352,16 @@ export default function Portfolio() {
     .m{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace}
     .soc{color:#86868b;transition:color .2s}
     .soc:hover{color:#1d1d1f}
+    /* Çalışma kartı ustalığı: lift, spotlight, logo zoom, ok kayması */
+    .wcard{transition:transform .3s cubic-bezier(.22,1,.36,1),box-shadow .45s ease,border-color .45s ease;will-change:transform}
+    .wcard:hover{box-shadow:0 22px 48px -22px rgba(20,20,30,.28);border-color:#bcbcc4 !important}
+    .wcard::after{content:'';position:absolute;inset:0;border-radius:18px;pointer-events:none;opacity:0;z-index:2;transition:opacity .4s ease;background:radial-gradient(300px circle at var(--mx,50%) var(--my,50%),rgba(0,102,204,.08),transparent 62%)}
+    .wcard:hover::after{opacity:1}
+    .wthumb-img{transition:transform .6s cubic-bezier(.22,1,.36,1);will-change:transform}
+    .wcard:hover .wthumb-img{transform:scale(1.05)}
+    .warrow{display:inline-flex;transition:transform .35s cubic-bezier(.22,1,.36,1)}
+    .wcard:hover .warrow{transform:translate(3px,-3px)}
+    @media (prefers-reduced-motion: reduce){.wcard,.wthumb-img,.warrow{transition:none !important}}
     @keyframes abPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
     @keyframes abReveal{0%{opacity:0}28%{opacity:1}60%{opacity:1}100%{opacity:0}}
     @media (max-width:430px){.navwork{display:none}}
@@ -334,7 +371,7 @@ export default function Portfolio() {
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: L.bg, color: L.ink,
       fontFamily: "ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif", position: "relative", overflow: "hidden" }}>
-      <style>{css}</style>
+      <style dangerouslySetInnerHTML={{ __html: css }} />
 
       <nav style={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", gap: 14, padding: "16px 24px",
         background: "rgba(245,245,247,0.8)", backdropFilter: "blur(14px)", borderBottom: `1px solid ${L.line}` }}>

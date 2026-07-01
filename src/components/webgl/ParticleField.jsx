@@ -34,6 +34,7 @@ uniform float uMouseStrength;
 uniform float uSize;
 uniform float uPixelRatio;
 uniform float uProgress;
+uniform float uScroll;
 uniform vec3  uColorA;
 uniform vec3  uColorB;
 uniform vec3  uColorC;
@@ -128,14 +129,22 @@ void main(){
 
   pos *= mix(0.55, 1.0, uProgress);
 
+  // Scroll geçişi: kaydırdıkça dışa patla + türbülansla dağıl
+  vec3 dir = normalize(pos + 0.0001);
+  pos += dir * (uScroll * uScroll) * 3.2;
+  pos += curlNoise(pos * 0.5 + 11.0) * uScroll * 1.4;
+  pos.y += uScroll * 1.2; // hafifçe yukarı süzül
+
   vec4 mv = modelViewMatrix * vec4(pos, 1.0);
   gl_Position = projectionMatrix * mv;
-  gl_PointSize = uSize * aScale * uPixelRatio * (7.0 / -mv.z);
+  gl_PointSize = uSize * aScale * uPixelRatio * (7.0 / -mv.z) * (1.0 - uScroll * 0.35);
 
   float speed = length(flow);
   vColor = mix(uColorA, uColorB, clamp(speed * 0.85, 0.0, 1.0));
   vColor = mix(vColor, uColorC, smoothstep(0.35, 1.0, influence));
-  vAlpha = mix(0.0, 1.0, uProgress) * (0.10 + 0.30 * aScale);
+  // Scroll ile sön (hero sayfaya karışırken erisin)
+  float scrollFade = 1.0 - smoothstep(0.1, 0.9, uScroll);
+  vAlpha = mix(0.0, 1.0, uProgress) * (0.10 + 0.30 * aScale) * scrollFade;
 }
 `;
 
@@ -216,6 +225,7 @@ export default function ParticleField({ className, style }) {
         uSize: { value: 15 },
         uPixelRatio: { value: dpr },
         uProgress: { value: 0 },
+        uScroll: { value: 0 },
         // Apple-nötr grafit paleti — mor/mavi vurgu yok, tek-renk sakin sis
         uColorA: { value: new Color("#a8adb6") }, // yumuşak grafit (sakin)
         uColorB: { value: new Color("#6b7280") }, // koyu grafit (akış)
@@ -288,6 +298,7 @@ export default function ParticleField({ className, style }) {
       u.uMouseStrength.value = mouseStrength;
 
       const sN = scrollY / Math.max(window.innerHeight, 1);
+      u.uScroll.value = Math.min(sN, 1);
       points.rotation.z = sN * 0.12;
       points.rotation.y = (reduce ? 0 : Math.sin(elapsed * 0.06) * 0.12) + sN * 0.15;
       camera.position.y = -sN * 0.6;
