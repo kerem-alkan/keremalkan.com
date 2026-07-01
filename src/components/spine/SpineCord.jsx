@@ -9,7 +9,7 @@
  */
 import { useEffect, useRef } from "react";
 import {
-  BufferAttribute, BufferGeometry, Color, NormalBlending,
+  AdditiveBlending, BufferAttribute, BufferGeometry, Color,
   OrthographicCamera, Points, Scene, ShaderMaterial, WebGLRenderer,
 } from "three";
 
@@ -84,8 +84,8 @@ export default function SpineCord({ geom, scrollRef, count = 2400 }) {
     geo.setAttribute("aScale", new BufferAttribute(scale, 1));
 
     const material = new ShaderMaterial({
-      vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, blending: NormalBlending,
-      uniforms: { uSize: { value: 2.6 }, uDpr: { value: dpr }, uColor: { value: new Color("#6b7280") } },
+      vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, blending: AdditiveBlending,
+      uniforms: { uSize: { value: 2.8 }, uDpr: { value: dpr }, uColor: { value: new Color("#9aa6e6") } },
     });
     const points = new Points(geo, material);
     points.frustumCulled = false;

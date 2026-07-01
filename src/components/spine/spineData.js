@@ -2,13 +2,13 @@
 // için buraya bir düğüm eklemek yeterli. Orb / AISpear web panel'e dokunulmaz;
 // canlı uygulamalara yalnızca `href` ile yönlendirilir.
 
-export const ACCENT = "#0066cc";
+export const ACCENT = "#4d8bff";
 
 export const NODES = [
   {
     id: "root",
     kind: "root",
-    color: "#6b7280",
+    color: "#9aa6e6",
     tr: {
       kicker: "KEREM ALKAN",
       title: "Yaşayan sistemler inşa ediyorum.",
@@ -25,7 +25,7 @@ export const NODES = [
   {
     id: "about",
     kind: "about",
-    color: "#8b93a3",
+    color: "#a6b0d0",
     tr: {
       kicker: "HAKKINDA",
       title: "Uçtan uca sistemler",
@@ -171,17 +171,20 @@ export const NODES = [
     id: "contact",
     kind: "crown",
     color: ACCENT,
+    email: "contact@keremalkan.com",
+    socials: [
+      { label: "Instagram", href: "https://instagram.com/keremlabs" },
+      { label: "GitHub", href: "https://github.com/kerem-alkan" },
+    ],
     tr: {
       kicker: "TAÇ · İLETİŞİM",
       title: "Bir şey yaratalım",
-      summary: "hello@keremalkan.com",
-      socials: ["Instagram", "GitHub", "LinkedIn"],
+      summary: "contact@keremalkan.com",
     },
     en: {
       kicker: "CROWN · CONTACT",
       title: "Let's build something",
-      summary: "hello@keremalkan.com",
-      socials: ["Instagram", "GitHub", "LinkedIn"],
+      summary: "contact@keremalkan.com",
     },
   },
 ];

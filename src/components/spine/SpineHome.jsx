@@ -8,7 +8,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ArrowUpRight, X } from "lucide-react";
 import { NODES, ACCENT, sideFactor, smoothPath } from "./spineData";
 
-const L = { bg: "#f5f5f7", ink: "#1d1d1f", gray: "#6e6e73", faint: "#86868b", line: "#d2d2d7", surface: "#ffffff" };
+// Karanlık sinematik tema (Active Theory yönü)
+const L = { bg: "#06060b", ink: "#f2f3f7", gray: "#9a9bad", faint: "#5f6070", line: "rgba(255,255,255,0.12)", surface: "#0e0e18" };
 
 const useIso = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
@@ -216,7 +217,7 @@ export default function SpineHome() {
         </defs>
         {/* taban çizgi (soluk grafit) — girişte kökten çizilir (native dash) */}
         {ready && (
-          <path d={path} fill="none" stroke="rgba(29,29,31,0.14)" strokeWidth="1.5" strokeLinecap="round"
+          <path d={path} fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth="1.5" strokeLinecap="round"
             pathLength="1" strokeDasharray="1" strokeDashoffset={drawn ? 0 : 1}
             style={{ transition: "stroke-dashoffset 1.8s cubic-bezier(0.22,1,0.36,1)" }} />
         )}
@@ -224,7 +225,7 @@ export default function SpineHome() {
         {ready && (
           <path d={path} fill="none" stroke="url(#spineGrad)" strokeWidth="2.4" strokeLinecap="round"
             pathLength={1} strokeDasharray={1} strokeDashoffset={1 - progress}
-            style={{ filter: "drop-shadow(0 0 6px rgba(0,0,0,0.08))" }} />
+            style={{ filter: "drop-shadow(0 0 10px rgba(255,255,255,0.28))" }} />
         )}
       </svg>
 
@@ -232,15 +233,15 @@ export default function SpineHome() {
       <div style={{ position: "fixed", top: 0, left: 0, width: "100%", zIndex: 40, display: "flex",
         justifyContent: "space-between", alignItems: "center", padding: "18px 24px", mixBlendMode: "normal", pointerEvents: "none" }}>
         <button onClick={() => scrollToNode(0)} style={{ pointerEvents: "auto", display: "flex", alignItems: "center", gap: 9, background: "none", border: "none", cursor: "pointer" }}>
-          <span style={{ width: 26, height: 26, borderRadius: 7, background: L.ink, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>K</span>
+          <span style={{ width: 26, height: 26, borderRadius: 7, background: L.ink, color: L.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>K</span>
           <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em", color: L.ink }}>Kerem Alkan</span>
         </button>
-        <div style={{ pointerEvents: "auto", display: "flex", border: `1px solid ${L.line}`, borderRadius: 99, overflow: "hidden", background: "rgba(245,245,247,0.7)", backdropFilter: "blur(10px)" }}>
+        <div style={{ pointerEvents: "auto", display: "flex", border: `1px solid ${L.line}`, borderRadius: 99, overflow: "hidden", background: "rgba(14,14,24,0.6)", backdropFilter: "blur(10px)" }}>
           {["tr", "en"].map((lng) => (
             <button key={lng} className="lang-btn" onClick={() => setLang(lng)}
               style={{ padding: "6px 11px", fontSize: 11, letterSpacing: 1, border: "none",
                 fontFamily: "ui-monospace,'SF Mono',Menlo,Consolas,monospace",
-                background: lang === lng ? L.ink : "transparent", color: lang === lng ? "#fff" : L.gray }}>
+                background: lang === lng ? L.ink : "transparent", color: lang === lng ? L.bg : L.gray }}>
               {lng.toUpperCase()}
             </button>
           ))}
@@ -253,7 +254,7 @@ export default function SpineHome() {
         {NODES.map((n, i) => (
           <div key={n.id} className="mini-dot" onClick={() => scrollToNode(i)} title={n[lang].title}
             style={{ width: active === i ? 11 : 7, height: active === i ? 11 : 7, borderRadius: 99,
-              background: active === i ? n.color : "transparent", border: `1.5px solid ${active === i ? n.color : "rgba(29,29,31,0.28)"}` }} />
+              background: active === i ? n.color : "transparent", border: `1.5px solid ${active === i ? n.color : "rgba(255,255,255,0.3)"}` }} />
         ))}
       </div>
 
@@ -313,8 +314,8 @@ export default function SpineHome() {
                     </button>
                   )}
                   {node.kind === "crown" && (
-                    <a href="mailto:hello@keremalkan.com" style={{ marginTop: 4, fontSize: "clamp(22px,5vw,40px)", fontWeight: 600,
-                      letterSpacing: "-0.02em", color: L.ink, textDecoration: "none" }}>hello@keremalkan.com</a>
+                    <a href={`mailto:${node.email}`} style={{ marginTop: 4, fontSize: "clamp(22px,5vw,40px)", fontWeight: 600,
+                      letterSpacing: "-0.02em", color: L.ink, textDecoration: "none" }}>{node.email}</a>
                   )}
                 </div>
               </div>
@@ -329,7 +330,7 @@ export default function SpineHome() {
           <motion.div className="spine-panel-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}
             onClick={() => setOpen(null)}
             style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center",
-              padding: "24px", background: "rgba(245,245,247,0.72)", backdropFilter: "blur(16px)" }}>
+              padding: "24px", background: "rgba(4,4,9,0.66)", backdropFilter: "blur(16px)" }}>
             <motion.div className="spine-panel" data-lenis-prevent
               initial={{ opacity: 0, scale: 0.2, x: origin.x - vw / 2, y: origin.y - vh / 2 }}
               animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
@@ -414,8 +415,11 @@ export default function SpineHome() {
                     )}
 
                     {node.socials && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 20, fontSize: 15, color: L.gray }}>
-                        {(t.socials || []).map((s) => <span key={s}>{s}</span>)}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 20, fontSize: 15 }}>
+                        {node.socials.map((s) => (
+                          <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"
+                            style={{ color: L.gray, textDecoration: "none", borderBottom: `1px solid ${L.line}`, paddingBottom: 2 }}>{s.label}</a>
+                        ))}
                       </div>
                     )}
                   </>
