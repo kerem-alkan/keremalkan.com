@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Lenis from "lenis";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ArrowUpRight, X } from "lucide-react";
-import { NODES, ACCENT, sideFactor, smoothPath } from "./spineData";
+import { NODES, sideFactor } from "./spineData";
 
 // Karanlık sinematik tema (Active Theory yönü)
 const L = { bg: "#06060b", ink: "#f2f3f7", gray: "#9a9bad", faint: "#5f6070", line: "rgba(255,255,255,0.12)", surface: "#0e0e18" };
@@ -25,8 +25,8 @@ const AdminOverlay = dynamic(() => import("./AdminOverlay"), {
   loading: () => <div style={{ position: "fixed", inset: 0, background: "#0B0710" }} />,
 });
 
-// WebGL parçacık kordonu — SVG omurganın arkasında akan grafit sis (ssr'siz, client-only)
-const SpineCord = dynamic(() => import("./SpineCord"), { ssr: false });
+// FAZ A: gerçek 3B omurga sahnesi (R3F) — sabit arka plan, ssr'siz
+const Spine3D = dynamic(() => import("./Spine3D"), { ssr: false });
 
 export default function SpineHome() {
   const router = useRouter();
@@ -35,7 +35,7 @@ export default function SpineHome() {
   const [experience, setExperience] = useState(null); // 'orb' | 'admin' — tam ekran overlay
   const [active, setActive] = useState(0);
   const [origin, setOrigin] = useState({ x: 0, y: 0 }); // tıklanan öğenin ekran merkezi (overlay buradan doğar)
-  const [progress, setProgress] = useState(0);
+  // NOT: scroll ilerlemesi state değil, progressRef (re-render'sız → 3B sahne + perf)
   const [geom, setGeom] = useState({ w: 1200, h: 3000, amp: 180, pts: [] });
   const [ready, setReady] = useState(false);
   const [drawn, setDrawn] = useState(false); // giriş: omurga kökten çizilir
@@ -43,7 +43,8 @@ export default function SpineHome() {
   const rootRef = useRef(null);
   const budRefs = useRef([]);
   const lenisRef = useRef(null);
-  const scrollRef = useRef(0); // WebGL kordonu her frame okur (re-render'sız)
+  const scrollRef = useRef(0); // her frame okunur (re-render'sız)
+  const progressRef = useRef(0); // 3B sahne scroll ilerlemesini buradan okur
   const geomRef = useRef(geom); // onScroll reflow'suz aktif-düğüm tespiti için
 
   // Dil tercihi (mevcut siteyle uyumlu)
@@ -110,7 +111,7 @@ export default function SpineHome() {
     const onScroll = ({ scroll, limit }) => {
       scrollRef.current = scroll; // kordon senkronu (re-render yok)
       const p = limit > 0 ? Math.min(scroll / limit, 1) : 0;
-      setProgress(p);
+      progressRef.current = p; // 3B sahne okur (re-render yok)
       // Aktif düğüm: ölçülmüş pts.y (belge uzayı) ile — her-frame reflow YOK
       const mid = scroll + window.innerHeight / 2;
       const pts = geomRef.current.pts || [];
@@ -147,7 +148,6 @@ export default function SpineHome() {
   }, [open, experience]);
 
   geomRef.current = geom; // en güncel eğri onScroll'a
-  const path = useMemo(() => smoothPath(geom.pts), [geom.pts]);
 
   const scrollToNode = (i) => {
     const el = budRefs.current[i];
@@ -198,36 +198,8 @@ export default function SpineHome() {
       fontFamily: "ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" }}>
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
-      {/* ---- WebGL parçacık kordonu (en arkada, SVG çizgisinin gerisinde) ---- */}
-      {ready && <SpineCord geom={geom} scrollRef={scrollRef} count={geom.w < 768 ? 1100 : 2400} />}
-
-      {/* ---- SVG OMURGA (arka planda) ---- */}
-      <svg width="100%" height={geom.h} viewBox={`0 0 ${geom.w} ${geom.h}`} preserveAspectRatio="none"
-        style={{ position: "absolute", top: 0, left: 0, zIndex: 0, pointerEvents: "none" }}>
-        <defs>
-          <linearGradient id="spineGrad" gradientUnits="userSpaceOnUse"
-            x1="0" y1={geom.pts[0]?.y || 0} x2="0" y2={geom.pts[geom.pts.length - 1]?.y || geom.h}>
-            {geom.pts.map((p, i) => {
-              const y0 = geom.pts[0]?.y || 0;
-              const y1 = geom.pts[geom.pts.length - 1]?.y || geom.h;
-              const off = y1 > y0 ? (p.y - y0) / (y1 - y0) : i / Math.max(NODES.length - 1, 1);
-              return <stop key={i} offset={`${(off * 100).toFixed(2)}%`} stopColor={NODES[i].color} />;
-            })}
-          </linearGradient>
-        </defs>
-        {/* taban çizgi (soluk grafit) — girişte kökten çizilir (native dash) */}
-        {ready && (
-          <path d={path} fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth="1.5" strokeLinecap="round"
-            pathLength="1" strokeDasharray="1" strokeDashoffset={drawn ? 0 : 1}
-            style={{ transition: "stroke-dashoffset 1.8s cubic-bezier(0.22,1,0.36,1)" }} />
-        )}
-        {/* ilerleme çizgisi (projeye özel renk) — scroll ile dolar */}
-        {ready && (
-          <path d={path} fill="none" stroke="url(#spineGrad)" strokeWidth="2.4" strokeLinecap="round"
-            pathLength={1} strokeDasharray={1} strokeDashoffset={1 - progress}
-            style={{ filter: "drop-shadow(0 0 10px rgba(255,255,255,0.28))" }} />
-        )}
-      </svg>
+      {/* ---- FAZ A: gerçek 3B omurga sahnesi (sabit arka plan) ---- */}
+      <Spine3D progressRef={progressRef} />
 
       {/* ---- NAV: logo (sol üst) + dil (sağ üst) ---- */}
       <div style={{ position: "fixed", top: 0, left: 0, width: "100%", zIndex: 40, display: "flex",
@@ -263,7 +235,7 @@ export default function SpineHome() {
         {NODES.map((node, i) => {
           const t = node[lang];
           const side = sideFactor(i) >= 0 ? 1 : -1; // metin dış tarafa
-          const x = geom.amp * sideFactor(i);
+          const x = 0; // FAZ A: düğümler merkezde (3B omurga sahnenin ortasında)
           const isActive = active === i;
           return (
             <section key={node.id}
