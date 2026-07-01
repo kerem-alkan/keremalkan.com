@@ -43,6 +43,7 @@ export default function SpineHome() {
   const budRefs = useRef([]);
   const lenisRef = useRef(null);
   const scrollRef = useRef(0); // WebGL kordonu her frame okur (re-render'sız)
+  const geomRef = useRef(geom); // onScroll reflow'suz aktif-düğüm tespiti için
 
   // Dil tercihi (mevcut siteyle uyumlu)
   useEffect(() => {
@@ -109,13 +110,14 @@ export default function SpineHome() {
       scrollRef.current = scroll; // kordon senkronu (re-render yok)
       const p = limit > 0 ? Math.min(scroll / limit, 1) : 0;
       setProgress(p);
+      // Aktif düğüm: ölçülmüş pts.y (belge uzayı) ile — her-frame reflow YOK
       const mid = scroll + window.innerHeight / 2;
-      const ys = budRefs.current.map((el) => (el ? el.getBoundingClientRect().top + window.scrollY + el.offsetHeight / 2 : Infinity));
+      const pts = geomRef.current.pts || [];
       let best = 0, bestD = Infinity;
-      ys.forEach((y, i) => {
-        const d = Math.abs(y - mid);
+      for (let i = 0; i < pts.length; i++) {
+        const d = Math.abs(pts[i].y - mid);
         if (d < bestD) { bestD = d; best = i; }
-      });
+      }
       setActive(best);
     };
     lenis.on("scroll", onScroll);
@@ -135,14 +137,15 @@ export default function SpineHome() {
     else lenis.start();
   }, [open, experience]);
 
-  // Experience overlay: Esc ile kapat
+  // Panel / experience: Esc ile kapat
   useEffect(() => {
-    if (!experience) return;
-    const onKey = (e) => { if (e.key === "Escape") setExperience(null); };
+    if (open == null && !experience) return;
+    const onKey = (e) => { if (e.key === "Escape") { setExperience(null); setOpen(null); } };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [experience]);
+  }, [open, experience]);
 
+  geomRef.current = geom; // en güncel eğri onScroll'a
   const path = useMemo(() => smoothPath(geom.pts), [geom.pts]);
 
   const scrollToNode = (i) => {
@@ -171,7 +174,16 @@ export default function SpineHome() {
     .panel-cta:hover{transform:translateY(-2px)}
     .panel-cta:hover .pca{transform:translateX(4px)}
     .pca{display:inline-flex;transition:transform .35s cubic-bezier(.22,1,.36,1)}
-    @media (prefers-reduced-motion:reduce){.spine-bud,.spine-title,.mini-dot,.panel-cta{transition:none}}
+    /* Sinematik canlı düğüm */
+    @keyframes spineCore{0%,100%{transform:scale(1)}50%{transform:scale(1.28)}}
+    @keyframes spineHalo{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+    @keyframes spineRing{to{transform:rotate(1turn)}}
+    .spine-core{animation:spineCore 3.2s ease-in-out infinite}
+    .spine-halo{animation:spineHalo 4s ease-in-out infinite}
+    .spine-ring{animation:spineRing 9s linear infinite}
+    .spine-bud.is-active .spine-ring{animation-duration:4s}
+    .spine-bud.is-active .spine-core{animation-duration:2s}
+    @media (prefers-reduced-motion:reduce){.spine-bud,.spine-title,.mini-dot,.panel-cta,.spine-core,.spine-halo,.spine-ring{animation:none !important;transition:none}}
     /* Mobil: panel tam ekran, mini-omurga gizli */
     @media (max-width:640px){
       .spine-panel-wrap{padding:0 !important;}
@@ -186,7 +198,7 @@ export default function SpineHome() {
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
       {/* ---- WebGL parçacık kordonu (en arkada, SVG çizgisinin gerisinde) ---- */}
-      {ready && <SpineCord geom={geom} scrollRef={scrollRef} />}
+      {ready && <SpineCord geom={geom} scrollRef={scrollRef} count={geom.w < 768 ? 1100 : 2400} />}
 
       {/* ---- SVG OMURGA (arka planda) ---- */}
       <svg width="100%" height={geom.h} viewBox={`0 0 ${geom.w} ${geom.h}`} preserveAspectRatio="none"
@@ -259,13 +271,19 @@ export default function SpineHome() {
                 <div style={{ position: "relative", transform: `translateX(${x}px)`, transition: "transform .6s cubic-bezier(.22,1,.36,1)",
                   display: "flex", flexDirection: "column", alignItems: "center", gap: 18, textAlign: "center", maxWidth: 520 }}>
 
-                  {/* Tomurcuk düğüm */}
-                  <div ref={(el) => (budRefs.current[i] = el)} className="spine-bud" onClick={(e) => openNode(i, e)}
+                  {/* Tomurcuk düğüm — sinematik canlı */}
+                  <div ref={(el) => (budRefs.current[i] = el)} className={`spine-bud${isActive ? " is-active" : ""}`} onClick={(e) => openNode(i, e)}
                     style={{ position: "relative", width: 64, height: 64, display: "grid", placeItems: "center",
-                      transform: isActive ? "scale(1.15)" : "scale(1)" }}>
-                    {/* hâle */}
-                    <span style={{ position: "absolute", inset: -8, borderRadius: 99, background: node.color,
-                      opacity: isActive ? 0.22 : 0.08, filter: "blur(10px)", transition: "opacity .5s ease" }} />
+                      transform: isActive ? "scale(1.18)" : "scale(1)" }}>
+                    {/* dönen enerji halkası */}
+                    <span className="spine-ring" aria-hidden style={{ position: "absolute", inset: -7, borderRadius: "50%",
+                      background: `conic-gradient(from 0deg, transparent 0%, ${node.color} 22%, transparent 52%)`,
+                      WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
+                      mask: "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
+                      opacity: isActive ? 0.95 : 0.4, transition: "opacity .5s ease" }} />
+                    {/* nefes alan hâle (opacity aktife bağlı → karartma korunur) */}
+                    <span className="spine-halo" style={{ position: "absolute", inset: -8, borderRadius: 99, background: node.color,
+                      opacity: isActive ? 0.24 : 0.09, filter: "blur(11px)", transition: "opacity .5s ease" }} />
                     {/* petaller (açılınca çiçek) */}
                     {[0, 1, 2, 3, 4].map((k) => (
                       <span key={k} style={{ position: "absolute", width: 10, height: 22, borderRadius: 99,
@@ -273,9 +291,9 @@ export default function SpineHome() {
                         transform: `rotate(${k * 72}deg) translateY(-16px) scale(${isActive ? 1 : 0.6})`,
                         transition: "opacity .5s ease, transform .6s cubic-bezier(.22,1,.36,1)" }} />
                     ))}
-                    {/* çekirdek */}
-                    <span style={{ position: "relative", width: 16, height: 16, borderRadius: 99, background: node.color,
-                      boxShadow: `0 0 0 4px ${L.bg}, 0 0 14px ${node.color}` }} />
+                    {/* pulslayan çekirdek */}
+                    <span className="spine-core" style={{ position: "relative", width: 16, height: 16, borderRadius: 99, background: node.color,
+                      boxShadow: `0 0 0 4px ${L.bg}, 0 0 16px ${node.color}` }} />
                   </div>
 
                   <div className="m" style={{ fontFamily: "ui-monospace,'SF Mono',Menlo,Consolas,monospace",
@@ -312,12 +330,12 @@ export default function SpineHome() {
             onClick={() => setOpen(null)}
             style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center",
               padding: "24px", background: "rgba(245,245,247,0.72)", backdropFilter: "blur(16px)" }}>
-            <motion.div className="spine-panel"
-              initial={{ opacity: 0, scale: 0.35, x: origin.x - vw / 2, y: origin.y - vh / 2 }}
+            <motion.div className="spine-panel" data-lenis-prevent
+              initial={{ opacity: 0, scale: 0.2, x: origin.x - vw / 2, y: origin.y - vh / 2 }}
               animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-              exit={{ opacity: 0, scale: 0.5, x: (origin.x - vw / 2) * 0.6, y: (origin.y - vh / 2) * 0.6 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} onClick={(e) => e.stopPropagation()}
-              style={{ position: "relative", width: "min(760px,100%)", maxHeight: "86vh", overflowY: "auto", background: L.surface,
+              exit={{ opacity: 0, scale: 0.4, x: (origin.x - vw / 2) * 0.7, y: (origin.y - vh / 2) * 0.7, transition: { duration: 0.32, ease: [0.4, 0, 1, 1] } }}
+              transition={{ type: "spring", stiffness: 220, damping: 26, mass: 0.9 }} onClick={(e) => e.stopPropagation()}
+              style={{ position: "relative", width: "min(760px,100%)", maxHeight: "86vh", overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch", background: L.surface,
                 border: `1px solid ${L.line}`, borderRadius: 24, padding: "clamp(24px,4vw,44px)",
                 boxShadow: "0 40px 100px -40px rgba(20,20,30,0.4)" }}>
               {(() => {

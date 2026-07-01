@@ -120,7 +120,7 @@ export default function AdminOverlay() {
   const SCIcon = SC.icon;
 
   return (
-    <div style={shell}>
+    <div style={shell} data-lenis-prevent>
       <style dangerouslySetInnerHTML={{ __html: `.aim{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace}
         .ai-in{width:100%;background:${D.bg};border:1px solid ${D.line};border-radius:10px;padding:12px 14px;color:${D.ink};font-size:15px}
         .ai-in:focus{outline:none;border-color:${D.gold}}
