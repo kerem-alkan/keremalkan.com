@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ArrowUpRight, Instagram, Github, Linkedin } from "lucide-react";
+import ParticleField from "@/components/webgl/ParticleField";
 
 /* ============================== TOKENS ============================== */
 const L = { bg: "#f5f5f7", surface: "#ffffff", ink: "#1d1d1f", gray: "#6e6e73", faint: "#86868b", line: "#d2d2d7", accent: "#0066cc" };
@@ -183,25 +184,32 @@ function Home({ onOpen, gridRef, lang }) {
   const t = STR[lang];
   return (
     <div>
-      <section style={{ padding: "clamp(48px,12vw,120px) 24px clamp(40px,8vw,80px)", maxWidth: 1080, margin: "0 auto" }}>
-        <div className="m" style={{ fontSize: 12, letterSpacing: 2.5, color: L.faint, marginBottom: 22 }}>{t.hero_eyebrow}</div>
-        <h1 style={{ fontSize: "clamp(40px,8.5vw,82px)", fontWeight: 600, letterSpacing: "-0.035em", lineHeight: 1.04, color: L.ink, margin: 0, maxWidth: 900 }}>
-          {t.hero_l1}<br />{t.hero_l2}
-        </h1>
-        <p style={{ fontSize: "clamp(17px,2.4vw,21px)", color: L.gray, lineHeight: 1.5, marginTop: 28, maxWidth: 620 }}>
-          {t.hero_lead}
-        </p>
-        <div style={{ display: "flex", gap: 12, marginTop: 36, flexWrap: "wrap" }}>
-          <button onClick={() => gridRef.current && gridRef.current.scrollIntoView({ behavior: "smooth" })}
-            style={{ background: L.ink, color: "#fff", border: "none", borderRadius: 99, padding: "13px 24px", fontSize: 15, fontWeight: 500, cursor: "pointer" }}>
-            {t.hero_viewWork}
-          </button>
-          <button onClick={() => onOpen("case")}
-            style={{ background: "transparent", color: L.ink, border: `1px solid ${L.line}`, borderRadius: 99, padding: "13px 24px", fontSize: 15, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}>
-            {t.hero_radar} <ArrowRight size={16} />
-          </button>
-        </div>
-      </section>
+      <div style={{ position: "relative", overflow: "hidden" }}>
+        {/* WebGL "yaşayan sis" — Apple açık tema için ince curl-noise parçacık alanı */}
+        <ParticleField />
+        {/* Okunabilirlik maskesi: sol/metin tarafını yumuşat, alta doğru sayfaya karış */}
+        <div aria-hidden style={{ position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none",
+          background: "radial-gradient(115% 85% at 12% 42%, rgba(245,245,247,0.94) 0%, rgba(245,245,247,0.55) 42%, rgba(245,245,247,0) 68%), linear-gradient(180deg, rgba(245,245,247,0) 58%, rgba(245,245,247,1) 100%)" }} />
+        <section style={{ position: "relative", zIndex: 2, padding: "clamp(88px,16vh,150px) 24px clamp(56px,9vh,110px)", maxWidth: 1080, margin: "0 auto", minHeight: "min(88vh, 820px)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div className="m" style={{ fontSize: 12, letterSpacing: 2.5, color: L.faint, marginBottom: 22 }}>{t.hero_eyebrow}</div>
+          <h1 style={{ fontSize: "clamp(40px,8.5vw,82px)", fontWeight: 600, letterSpacing: "-0.035em", lineHeight: 1.04, color: L.ink, margin: 0, maxWidth: 900 }}>
+            {t.hero_l1}<br />{t.hero_l2}
+          </h1>
+          <p style={{ fontSize: "clamp(17px,2.4vw,21px)", color: L.gray, lineHeight: 1.5, marginTop: 28, maxWidth: 620 }}>
+            {t.hero_lead}
+          </p>
+          <div style={{ display: "flex", gap: 12, marginTop: 36, flexWrap: "wrap" }}>
+            <button onClick={() => gridRef.current && gridRef.current.scrollIntoView({ behavior: "smooth" })}
+              style={{ background: L.ink, color: "#fff", border: "none", borderRadius: 99, padding: "13px 24px", fontSize: 15, fontWeight: 500, cursor: "pointer" }}>
+              {t.hero_viewWork}
+            </button>
+            <button onClick={() => onOpen("case")}
+              style={{ background: "transparent", color: L.ink, border: `1px solid ${L.line}`, borderRadius: 99, padding: "13px 24px", fontSize: 15, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}>
+              {t.hero_radar} <ArrowRight size={16} />
+            </button>
+          </div>
+        </section>
+      </div>
 
       <section ref={gridRef} style={{ padding: "20px 24px clamp(28px,6vw,56px)", maxWidth: 1080, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 28, borderTop: `1px solid ${L.line}`, paddingTop: 28 }}>
