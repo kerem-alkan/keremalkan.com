@@ -38,13 +38,14 @@ export default function SpineHome() {
   // NOT: scroll ilerlemesi state değil, progressRef (re-render'sız → 3B sahne + perf)
   const [geom, setGeom] = useState({ w: 1200, h: 3000, amp: 180, pts: [] });
   const [ready, setReady] = useState(false);
-  const [drawn, setDrawn] = useState(false); // giriş: omurga kökten çizilir
+  const [diving, setDiving] = useState(null); // FAZ B: kamera dalışı sürerken düğüm index'i
 
   const rootRef = useRef(null);
   const budRefs = useRef([]);
   const lenisRef = useRef(null);
   const scrollRef = useRef(0); // her frame okunur (re-render'sız)
   const progressRef = useRef(0); // 3B sahne scroll ilerlemesini buradan okur
+  const diveRef = useRef({ active: false, index: -1 }); // 3B kamera dalış hedefi
   const geomRef = useRef(geom); // onScroll reflow'suz aktif-düğüm tespiti için
 
   // Dil tercihi (mevcut siteyle uyumlu)
@@ -89,13 +90,6 @@ export default function SpineHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
 
-  // Giriş çizimini tetikle (ölçüm hazır olunca). setTimeout ile — rAF
-  // throttle edilse (arka plan sekmesi) bile omurga çizilir.
-  useEffect(() => {
-    if (!ready) return;
-    const id = setTimeout(() => setDrawn(true), 60);
-    return () => clearTimeout(id);
-  }, [ready]);
 
   // Lenis akıcı scroll + scroll'a bağlı ilerleme/aktif düğüm
   useEffect(() => {
@@ -135,17 +129,24 @@ export default function SpineHome() {
   useEffect(() => {
     const lenis = lenisRef.current;
     if (!lenis) return;
-    if (open != null || experience) lenis.stop();
+    if (open != null || experience || diving != null) lenis.stop();
     else lenis.start();
-  }, [open, experience]);
+  }, [open, experience, diving]);
 
-  // Panel / experience: Esc ile kapat
+  // Panel / experience / dalış: Esc ile kapat-iptal
   useEffect(() => {
-    if (open == null && !experience) return;
-    const onKey = (e) => { if (e.key === "Escape") { setExperience(null); setOpen(null); } };
+    if (open == null && !experience && diving == null) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        setExperience(null);
+        setOpen(null);
+        setDiving(null);
+        diveRef.current = { active: false, index: -1 };
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, experience]);
+  }, [open, experience, diving]);
 
   geomRef.current = geom; // en güncel eğri onScroll'a
 
@@ -158,7 +159,28 @@ export default function SpineHome() {
   const captureOrigin = (e) => {
     try { const r = e.currentTarget.getBoundingClientRect(); setOrigin({ x: r.left + r.width / 2, y: r.top + r.height / 2 }); } catch {}
   };
-  const openNode = (i, e) => { captureOrigin(e); setOpen(i); };
+
+  const reduce = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const isMobile = geom.w < 768;
+
+  // FAZ B: düğüme tıkla → kamera düğüme dalar → panel "monitör" olarak açılır
+  const startDive = (i) => {
+    if (open != null || diving != null) return;
+    if (reduce) { setOrigin({ x: window.innerWidth / 2, y: window.innerHeight / 2 }); setOpen(i); return; }
+    diveRef.current = { active: true, index: i };
+    setDiving(i);
+  };
+  const onDiveComplete = (i) => {
+    setOrigin({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+    setDiving(null);
+    setOpen(i); // diveRef aktif kalır → kamera düğümde kilitli; kapatınca serbest bırakılır
+  };
+  const closePanel = () => {
+    setOpen(null);
+    setDiving(null);
+    diveRef.current = { active: false, index: -1 };
+  };
+  const openNode = (i) => startDive(i);
 
   // Overlay'in doğacağı nokta için viewport merkezine göre delta
   const vw = typeof window !== "undefined" ? window.innerWidth : 0;
@@ -185,9 +207,12 @@ export default function SpineHome() {
     .spine-bud.is-active .spine-ring{animation-duration:4s}
     .spine-bud.is-active .spine-core{animation-duration:2s}
     @media (prefers-reduced-motion:reduce){.spine-bud,.spine-title,.mini-dot,.panel-cta,.spine-core,.spine-halo,.spine-ring{animation:none !important;transition:none}}
-    /* Mobil: panel tam ekran, mini-omurga gizli */
+    /* Monitör: CRT scanline dokusu */
+    .monitor::before{content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+      background:repeating-linear-gradient(0deg,rgba(255,255,255,.03) 0 1px,transparent 1px 3px)}
+    /* Mobil: panel tam ekran, mini-omurga gizli, backdrop-blur kapalı (perf) */
     @media (max-width:640px){
-      .spine-panel-wrap{padding:0 !important;}
+      .spine-panel-wrap{padding:0 !important;backdrop-filter:none !important;background:rgba(4,4,9,.92) !important;}
       .spine-panel{max-width:100% !important;width:100% !important;max-height:100svh !important;height:100svh !important;border-radius:0 !important;}
       .spine-minimap{display:none !important;}
     }
@@ -198,8 +223,9 @@ export default function SpineHome() {
       fontFamily: "ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" }}>
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
-      {/* ---- FAZ A: gerçek 3B omurga sahnesi (sabit arka plan) ---- */}
-      <Spine3D progressRef={progressRef} />
+      {/* ---- FAZ A+B+C: gerçek 3B omurga sahnesi (tıklanabilir düğümler + dalış) ---- */}
+      <Spine3D progressRef={progressRef} diveRef={diveRef} onDiveComplete={onDiveComplete}
+        onNodeClick={startDive} isMobile={isMobile} reduce={reduce} />
 
       {/* ---- NAV: logo (sol üst) + dil (sağ üst) ---- */}
       <div style={{ position: "fixed", top: 0, left: 0, width: "100%", zIndex: 40, display: "flex",
@@ -231,7 +257,9 @@ export default function SpineHome() {
       </div>
 
       {/* ---- OMURGA BÖLÜMLERİ ---- */}
-      <main style={{ position: "relative", zIndex: 10 }}>
+      {/* pointer-events:none → boş alan tıkları canvas'a (3B düğümlere) düşer; dalışta içerik söner */}
+      <main style={{ position: "relative", zIndex: 10, pointerEvents: "none",
+        opacity: diving != null ? 0.12 : 1, transition: "opacity .5s ease" }}>
         {NODES.map((node, i) => {
           const t = node[lang];
           const side = sideFactor(i) >= 0 ? 1 : -1; // metin dış tarafa
@@ -247,16 +275,17 @@ export default function SpineHome() {
                   {/* Tomurcuk düğüm — sinematik canlı */}
                   <div ref={(el) => (budRefs.current[i] = el)} className={`spine-bud${isActive ? " is-active" : ""}`} onClick={(e) => openNode(i, e)}
                     style={{ position: "relative", width: 64, height: 64, display: "grid", placeItems: "center",
-                      transform: isActive ? "scale(1.18)" : "scale(1)" }}>
+                      pointerEvents: "auto", transform: isActive ? "scale(1.18)" : "scale(1)" }}>
                     {/* dönen enerji halkası */}
                     <span className="spine-ring" aria-hidden style={{ position: "absolute", inset: -7, borderRadius: "50%",
                       background: `conic-gradient(from 0deg, transparent 0%, ${node.color} 22%, transparent 52%)`,
                       WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
                       mask: "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
                       opacity: isActive ? 0.95 : 0.4, transition: "opacity .5s ease" }} />
-                    {/* nefes alan hâle (opacity aktife bağlı → karartma korunur) */}
-                    <span className="spine-halo" style={{ position: "absolute", inset: -8, borderRadius: 99, background: node.color,
-                      opacity: isActive ? 0.24 : 0.09, filter: "blur(11px)", transition: "opacity .5s ease" }} />
+                    {/* nefes alan hâle — blur() yerine radial-gradient (mobil perf) */}
+                    <span className="spine-halo" style={{ position: "absolute", inset: -14, borderRadius: 99,
+                      background: `radial-gradient(circle, ${node.color} 0%, transparent 68%)`,
+                      opacity: isActive ? 0.3 : 0.12, transition: "opacity .5s ease" }} />
                     {/* petaller (açılınca çiçek) */}
                     {[0, 1, 2, 3, 4].map((k) => (
                       <span key={k} style={{ position: "absolute", width: 10, height: 22, borderRadius: 99,
@@ -280,14 +309,14 @@ export default function SpineHome() {
 
                   {node.kind !== "root" && node.kind !== "crown" && (
                     <button onClick={(e) => openNode(i, e)} style={{ marginTop: 4, display: "inline-flex", alignItems: "center", gap: 7,
-                      background: "transparent", color: L.ink, border: `1px solid ${L.line}`, borderRadius: 99, padding: "10px 18px",
+                      pointerEvents: "auto", background: "transparent", color: L.ink, border: `1px solid ${L.line}`, borderRadius: 99, padding: "10px 18px",
                       fontSize: 14, cursor: "pointer" }}>
                       {lang === "tr" ? "Aç" : "Open"} <ArrowUpRight size={15} />
                     </button>
                   )}
                   {node.kind === "crown" && (
                     <a href={`mailto:${node.email}`} style={{ marginTop: 4, fontSize: "clamp(22px,5vw,40px)", fontWeight: 600,
-                      letterSpacing: "-0.02em", color: L.ink, textDecoration: "none" }}>{node.email}</a>
+                      pointerEvents: "auto", letterSpacing: "-0.02em", color: L.ink, textDecoration: "none" }}>{node.email}</a>
                   )}
                 </div>
               </div>
@@ -300,30 +329,34 @@ export default function SpineHome() {
       <AnimatePresence>
         {open != null && (
           <motion.div className="spine-panel-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}
-            onClick={() => setOpen(null)}
+            onClick={closePanel}
             style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center",
-              padding: "24px", background: "rgba(4,4,9,0.66)", backdropFilter: "blur(16px)" }}>
-            <motion.div className="spine-panel" data-lenis-prevent
+              padding: "24px", background: "rgba(4,4,9,0.55)", backdropFilter: "blur(12px)" }}>
+            <motion.div className="spine-panel monitor" data-lenis-prevent
               initial={{ opacity: 0, scale: 0.2, x: origin.x - vw / 2, y: origin.y - vh / 2 }}
               animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
               exit={{ opacity: 0, scale: 0.4, x: (origin.x - vw / 2) * 0.7, y: (origin.y - vh / 2) * 0.7, transition: { duration: 0.32, ease: [0.4, 0, 1, 1] } }}
               transition={{ type: "spring", stiffness: 220, damping: 26, mass: 0.9 }} onClick={(e) => e.stopPropagation()}
-              style={{ position: "relative", width: "min(760px,100%)", maxHeight: "86vh", overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch", background: L.surface,
-                border: `1px solid ${L.line}`, borderRadius: 24, padding: "clamp(24px,4vw,44px)",
-                boxShadow: "0 40px 100px -40px rgba(20,20,30,0.4)" }}>
+              style={{ position: "relative", width: "min(760px,100%)", maxHeight: "86vh", overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch",
+                background: "linear-gradient(180deg, rgba(12,14,24,0.97), rgba(6,8,14,0.97))",
+                border: `1px solid ${NODES[open].color}55`, borderRadius: 20, padding: "clamp(24px,4vw,44px)",
+                boxShadow: `0 0 70px -14px ${NODES[open].color}88, 0 40px 100px -40px rgba(0,0,0,0.85)` }}>
               {(() => {
                 const node = NODES[open];
                 const t = node[lang];
                 return (
                   <>
-                    <button onClick={() => setOpen(null)} aria-label="Kapat"
+                    <button onClick={closePanel} aria-label="Kapat"
                       style={{ position: "absolute", top: 18, right: 18, width: 38, height: 38, borderRadius: 99, border: `1px solid ${L.line}`,
                         background: L.surface, cursor: "pointer", display: "grid", placeItems: "center", color: L.gray }}>
                       <X size={18} />
                     </button>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, paddingRight: 52 }}>
                       <span style={{ width: 10, height: 10, borderRadius: 99, background: node.color, boxShadow: `0 0 10px ${node.color}` }} />
                       <span className="m" style={{ fontFamily: "ui-monospace,'SF Mono',Menlo,Consolas,monospace", fontSize: 11, letterSpacing: 2, color: node.color }}>{t.kicker}</span>
+                      <span className="m" style={{ marginLeft: "auto", fontFamily: "ui-monospace,'SF Mono',Menlo,Consolas,monospace", fontSize: 10, letterSpacing: 1.5, color: L.faint }}>
+                        ESC — {lang === "tr" ? "KAPAT" : "CLOSE"}
+                      </span>
                     </div>
                     <h3 style={{ margin: 0, fontSize: "clamp(28px,5vw,48px)", fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1.05, color: L.ink }}>{t.title}</h3>
                     <p style={{ marginTop: 16, fontSize: "clamp(16px,2vw,20px)", lineHeight: 1.5, color: L.gray }}>{t.summary}</p>
@@ -371,7 +404,7 @@ export default function SpineHome() {
                     {(node.experience || node.href) && t.cta && (
                       <button className="panel-cta" onClick={(e) => {
                         captureOrigin(e);
-                        setOpen(null);
+                        closePanel();
                         if (node.experience) setExperience(node.experience);
                         else if (node.href) router.push(node.href);
                       }}
