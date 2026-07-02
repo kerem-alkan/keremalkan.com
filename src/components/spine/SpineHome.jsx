@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import Lenis from "lenis";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ArrowUpRight, X } from "lucide-react";
-import { NODES, sideFactor } from "./spineData";
+import { NODES } from "./spineData";
 
 // Karanlık sinematik tema (Active Theory yönü)
 const L = { bg: "#06060b", ink: "#f2f3f7", gray: "#9a9bad", faint: "#5f6070", line: "rgba(255,255,255,0.12)", surface: "#0e0e18" };
@@ -46,6 +46,7 @@ export default function SpineHome() {
   const scrollRef = useRef(0); // her frame okunur (re-render'sız)
   const progressRef = useRef(0); // 3B sahne scroll ilerlemesini buradan okur
   const diveRef = useRef({ active: false, index: -1 }); // 3B kamera dalış hedefi
+  const labelRefs = useRef([]); // FAZ D: 3B düğümlere yapışık DOM etiketleri (Spine3D konumlar)
   const geomRef = useRef(geom); // onScroll reflow'suz aktif-düğüm tespiti için
 
   // Dil tercihi (mevcut siteyle uyumlu)
@@ -60,19 +61,9 @@ export default function SpineHome() {
     if (typeof document !== "undefined") document.documentElement.lang = lang;
   }, [lang]);
 
-  const amplitudeFor = (w) => (w < 720 ? 0 : Math.min(w * 0.16, 200));
-
-  // Tomurcuk merkezlerini ölç → omurga eğrisi noktaları
+  // Viewport ölçümü (isMobile için). Etiket konumları artık 3B projeksiyondan gelir.
   const measure = () => {
-    const w = window.innerWidth;
-    const amp = amplitudeFor(w);
-    const docH = rootRef.current ? rootRef.current.scrollHeight : document.body.scrollHeight;
-    const pts = budRefs.current.map((el, i) => {
-      if (!el) return { x: w / 2 + amp * sideFactor(i), y: (i + 0.5) * (docH / NODES.length) };
-      const r = el.getBoundingClientRect();
-      return { x: r.left + r.width / 2 + window.scrollX, y: r.top + r.height / 2 + window.scrollY };
-    });
-    setGeom({ w, h: docH, amp, pts });
+    setGeom({ w: window.innerWidth, h: window.innerHeight, amp: 0, pts: [] });
     setReady(true);
   };
 
@@ -80,15 +71,9 @@ export default function SpineHome() {
     measure();
     const onResize = () => measure();
     window.addEventListener("resize", onResize);
-    // Fontlar yüklenince yeniden ölç (konum kayması olmasın)
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure).catch(() => {});
-    const t = setTimeout(measure, 400);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      clearTimeout(t);
-    };
+    return () => window.removeEventListener("resize", onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang]);
+  }, []);
 
 
   // Lenis akıcı scroll + scroll'a bağlı ilerleme/aktif düğüm
@@ -106,15 +91,8 @@ export default function SpineHome() {
       scrollRef.current = scroll; // kordon senkronu (re-render yok)
       const p = limit > 0 ? Math.min(scroll / limit, 1) : 0;
       progressRef.current = p; // 3B sahne okur (re-render yok)
-      // Aktif düğüm: ölçülmüş pts.y (belge uzayı) ile — her-frame reflow YOK
-      const mid = scroll + window.innerHeight / 2;
-      const pts = geomRef.current.pts || [];
-      let best = 0, bestD = Infinity;
-      for (let i = 0; i < pts.length; i++) {
-        const d = Math.abs(pts[i].y - mid);
-        if (d < bestD) { bestD = d; best = i; }
-      }
-      setActive(best);
+      // Aktif düğüm: bölümler eşit yükseklikte → doğrudan ilerlemeden (reflow yok)
+      setActive(Math.round(p * (NODES.length - 1)));
     };
     lenis.on("scroll", onScroll);
 
@@ -151,8 +129,8 @@ export default function SpineHome() {
   geomRef.current = geom; // en güncel eğri onScroll'a
 
   const scrollToNode = (i) => {
-    const el = budRefs.current[i];
-    if (el && lenisRef.current) lenisRef.current.scrollTo(el, { offset: -window.innerHeight / 2 + el.offsetHeight / 2 });
+    const lenis = lenisRef.current;
+    if (lenis) lenis.scrollTo(lenis.limit * (i / (NODES.length - 1)));
   };
 
   // Tıklanan öğenin ekran merkezini yakala → overlay/panel oradan büyür
@@ -225,7 +203,7 @@ export default function SpineHome() {
 
       {/* ---- FAZ A+B+C: gerçek 3B omurga sahnesi (tıklanabilir düğümler + dalış) ---- */}
       <Spine3D progressRef={progressRef} diveRef={diveRef} onDiveComplete={onDiveComplete}
-        onNodeClick={startDive} isMobile={isMobile} reduce={reduce} />
+        onNodeClick={startDive} labelRefs={labelRefs} isMobile={isMobile} reduce={reduce} />
 
       {/* ---- NAV: logo (sol üst) + dil (sağ üst) ---- */}
       <div style={{ position: "fixed", top: 0, left: 0, width: "100%", zIndex: 40, display: "flex",
@@ -260,70 +238,72 @@ export default function SpineHome() {
       {/* pointer-events:none → boş alan tıkları canvas'a (3B düğümlere) düşer; dalışta içerik söner */}
       <main style={{ position: "relative", zIndex: 10, pointerEvents: "none",
         opacity: diving != null ? 0.12 : 1, transition: "opacity .5s ease" }}>
+        {/* Bölümler yalnız scroll uzunluğunu tanımlar; içerik 3B'ye yapışık etiketlerde */}
+        {NODES.map((node) => (
+          <section key={node.id} style={{ height: "100svh" }} />
+        ))}
+      </main>
+
+      {/* ---- FAZ D: 3B DÜĞÜMLERE YAPIŞIK ETİKETLER (Spine3D her frame projekte eder) ---- */}
+      <div style={{ position: "fixed", inset: 0, zIndex: 10, pointerEvents: "none", overflow: "hidden",
+        opacity: diving != null ? 0.12 : 1, transition: "opacity .5s ease" }}>
         {NODES.map((node, i) => {
           const t = node[lang];
-          const side = sideFactor(i) >= 0 ? 1 : -1; // metin dış tarafa
-          const x = 0; // FAZ A: düğümler merkezde (3B omurga sahnenin ortasında)
           const isActive = active === i;
           return (
-            <section key={node.id}
-              style={{ position: "relative", minHeight: "100svh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ position: "relative", width: "min(1080px,100%)", padding: "0 24px", display: "flex", justifyContent: "center" }}>
-                <div style={{ position: "relative", transform: `translateX(${x}px)`, transition: "transform .6s cubic-bezier(.22,1,.36,1)",
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: 18, textAlign: "center", maxWidth: 520 }}>
+            <div key={node.id} ref={(el) => (labelRefs.current[i] = el)}
+              style={{ position: "absolute", left: 0, top: 0, opacity: 0, willChange: "transform",
+                transformOrigin: "50% 36px",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center",
+                width: "min(460px, 86vw)" }}>
 
-                  {/* Tomurcuk düğüm — sinematik canlı */}
-                  <div ref={(el) => (budRefs.current[i] = el)} className={`spine-bud${isActive ? " is-active" : ""}`} onClick={(e) => openNode(i, e)}
-                    style={{ position: "relative", width: 64, height: 64, display: "grid", placeItems: "center",
-                      pointerEvents: "auto", transform: isActive ? "scale(1.18)" : "scale(1)" }}>
-                    {/* dönen enerji halkası */}
-                    <span className="spine-ring" aria-hidden style={{ position: "absolute", inset: -7, borderRadius: "50%",
-                      background: `conic-gradient(from 0deg, transparent 0%, ${node.color} 22%, transparent 52%)`,
-                      WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
-                      mask: "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
-                      opacity: isActive ? 0.95 : 0.4, transition: "opacity .5s ease" }} />
-                    {/* nefes alan hâle — blur() yerine radial-gradient (mobil perf) */}
-                    <span className="spine-halo" style={{ position: "absolute", inset: -14, borderRadius: 99,
-                      background: `radial-gradient(circle, ${node.color} 0%, transparent 68%)`,
-                      opacity: isActive ? 0.3 : 0.12, transition: "opacity .5s ease" }} />
-                    {/* petaller (açılınca çiçek) */}
-                    {[0, 1, 2, 3, 4].map((k) => (
-                      <span key={k} style={{ position: "absolute", width: 10, height: 22, borderRadius: 99,
-                        background: node.color, opacity: isActive ? 0.5 : 0.18, transformOrigin: "50% 120%",
-                        transform: `rotate(${k * 72}deg) translateY(-16px) scale(${isActive ? 1 : 0.6})`,
-                        transition: "opacity .5s ease, transform .6s cubic-bezier(.22,1,.36,1)" }} />
-                    ))}
-                    {/* pulslayan çekirdek */}
-                    <span className="spine-core" style={{ position: "relative", width: 16, height: 16, borderRadius: 99, background: node.color,
-                      boxShadow: `0 0 0 4px ${L.bg}, 0 0 16px ${node.color}` }} />
-                  </div>
-
-                  <div className="m" style={{ fontFamily: "ui-monospace,'SF Mono',Menlo,Consolas,monospace",
-                    fontSize: 11, letterSpacing: 2, color: node.color, opacity: isActive ? 1 : 0.6, transition: "opacity .4s ease" }}>{t.kicker}</div>
-
-                  <h2 className="spine-title" style={{ margin: 0, fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1.05,
-                    fontSize: node.kind === "root" ? "clamp(34px,6.5vw,64px)" : "clamp(28px,5vw,48px)",
-                    color: L.ink, opacity: isActive ? 1 : 0.5, transform: isActive ? "translateY(0)" : "translateY(6px)" }}>{t.title}</h2>
-
-                  <p style={{ margin: 0, fontSize: "clamp(15px,2vw,18px)", lineHeight: 1.5, color: L.gray, opacity: isActive ? 1 : 0.5, transition: "opacity .4s ease" }}>{t.summary}</p>
-
-                  {node.kind !== "root" && node.kind !== "crown" && (
-                    <button onClick={(e) => openNode(i, e)} style={{ marginTop: 4, display: "inline-flex", alignItems: "center", gap: 7,
-                      pointerEvents: "auto", background: "transparent", color: L.ink, border: `1px solid ${L.line}`, borderRadius: 99, padding: "10px 18px",
-                      fontSize: 14, cursor: "pointer" }}>
-                      {lang === "tr" ? "Aç" : "Open"} <ArrowUpRight size={15} />
-                    </button>
-                  )}
-                  {node.kind === "crown" && (
-                    <a href={`mailto:${node.email}`} style={{ marginTop: 4, fontSize: "clamp(22px,5vw,40px)", fontWeight: 600,
-                      pointerEvents: "auto", letterSpacing: "-0.02em", color: L.ink, textDecoration: "none" }}>{node.email}</a>
-                  )}
-                </div>
+              {/* Tomurcuk düğüm — sinematik canlı */}
+              <div className={`spine-bud${isActive ? " is-active" : ""}`} onClick={(e) => openNode(i, e)}
+                style={{ position: "relative", width: 64, height: 64, display: "grid", placeItems: "center",
+                  pointerEvents: "auto", transform: isActive ? "scale(1.18)" : "scale(1)" }}>
+                <span className="spine-ring" aria-hidden style={{ position: "absolute", inset: -7, borderRadius: "50%",
+                  background: `conic-gradient(from 0deg, transparent 0%, ${node.color} 22%, transparent 52%)`,
+                  WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
+                  mask: "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
+                  opacity: isActive ? 0.95 : 0.4, transition: "opacity .5s ease" }} />
+                <span className="spine-halo" style={{ position: "absolute", inset: -14, borderRadius: 99,
+                  background: `radial-gradient(circle, ${node.color} 0%, transparent 68%)`,
+                  opacity: isActive ? 0.3 : 0.12, transition: "opacity .5s ease" }} />
+                {[0, 1, 2, 3, 4].map((k) => (
+                  <span key={k} style={{ position: "absolute", width: 10, height: 22, borderRadius: 99,
+                    background: node.color, opacity: isActive ? 0.5 : 0.18, transformOrigin: "50% 120%",
+                    transform: `rotate(${k * 72}deg) translateY(-16px) scale(${isActive ? 1 : 0.6})`,
+                    transition: "opacity .5s ease, transform .6s cubic-bezier(.22,1,.36,1)" }} />
+                ))}
+                <span className="spine-core" style={{ position: "relative", width: 16, height: 16, borderRadius: 99, background: node.color,
+                  boxShadow: `0 0 0 4px ${L.bg}, 0 0 16px ${node.color}` }} />
               </div>
-            </section>
+
+              <div className="m" style={{ fontFamily: "ui-monospace,'SF Mono',Menlo,Consolas,monospace",
+                fontSize: 11, letterSpacing: 2, color: node.color, opacity: isActive ? 1 : 0.6, transition: "opacity .4s ease" }}>{t.kicker}</div>
+
+              <h2 className="spine-title" style={{ margin: 0, fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1.05,
+                fontSize: node.kind === "root" ? "clamp(30px,5vw,50px)" : "clamp(24px,4vw,38px)",
+                color: L.ink, opacity: isActive ? 1 : 0.55 }}>{t.title}</h2>
+
+              <p style={{ margin: 0, fontSize: "clamp(14px,1.8vw,16px)", lineHeight: 1.5, color: L.gray,
+                opacity: isActive ? 1 : 0.45, transition: "opacity .4s ease" }}>{t.summary}</p>
+
+              {node.kind !== "root" && node.kind !== "crown" && (
+                <button onClick={(e) => openNode(i, e)} style={{ marginTop: 2, display: "inline-flex", alignItems: "center", gap: 7,
+                  pointerEvents: "auto", background: "rgba(6,6,11,0.4)", color: L.ink, border: `1px solid ${L.line}`, borderRadius: 99, padding: "9px 16px",
+                  fontSize: 13, cursor: "pointer" }}>
+                  {lang === "tr" ? "Aç" : "Open"} <ArrowUpRight size={14} />
+                </button>
+              )}
+              {node.kind === "crown" && (
+                <a href={`mailto:${node.email}`} style={{ marginTop: 2, fontSize: "clamp(19px,3.5vw,32px)", fontWeight: 600,
+                  pointerEvents: "auto", letterSpacing: "-0.02em", color: L.ink, textDecoration: "none" }}>{node.email}</a>
+              )}
+            </div>
           );
         })}
-      </main>
+      </div>
 
       {/* ---- YERİNDE AÇILAN PANEL (tomurcuk çiçek açar) ---- */}
       <AnimatePresence>
