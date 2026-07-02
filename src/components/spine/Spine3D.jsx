@@ -40,6 +40,7 @@ const SMOKE_FRAG = /* glsl */ `
   precision highp float;
   varying vec2 vUv;
   uniform float uTime; uniform float uFlash; uniform vec2 uFlashPos; uniform float uOct;
+  uniform float uBolt; uniform float uSeed;
   float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
   float noise(vec2 p){
     vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -58,8 +59,15 @@ const SMOKE_FRAG = /* glsl */ `
     vec3 smoke = mix(vec3(0.010, 0.011, 0.026), vec3(0.045, 0.05, 0.095), n);
     // şimşek: duman yoğunluğuyla modüle edilmiş yumuşak parlama (bulut içi ışık)
     float d = distance(uv, uFlashPos);
-    float glow = exp(-d * d * 14.0) * uFlash;
+    float glow = exp(-d * d * 14.0) * uFlash; // boyut sabit — yalnız şiddet uFlash ile artar
     smoke += vec3(0.45, 0.5, 0.92) * glow * (0.35 + 0.65 * n);
+    // çok hafif gerçek şimşek çizgisi (bazen): noise ile kıvrılan ince kanal, aşağı akar
+    float tt = (uFlashPos.y - uv.y) / 0.14;
+    float m = step(0.0, tt) * step(tt, 1.0);
+    float xoff = (noise(vec2(uSeed * 37.0 + tt * 9.0, tt * 21.0)) - 0.5) * 0.035 * tt;
+    float dx = abs(uv.x - (uFlashPos.x + xoff));
+    float boltCore = exp(-dx * 1400.0) * (1.0 - tt) * uBolt * m;
+    smoke += vec3(0.75, 0.8, 1.0) * boltCore * 0.45;
     gl_FragColor = vec4(smoke, 1.0);
   }
 `;
@@ -67,11 +75,13 @@ const SMOKE_FRAG = /* glsl */ `
 function Smoke({ isMobile }) {
   const mat = useRef();
   const mesh = useRef();
-  const flash = useRef({ v: 0, next: 4 + Math.random() * 8, pos: new THREE.Vector2(0.5, 0.6) });
+  const flash = useRef({ v: 0, bolt: 0, seed: 1, next: 4 + Math.random() * 8, pos: new THREE.Vector2(0.5, 0.6) });
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uFlash: { value: 0 },
     uFlashPos: { value: new THREE.Vector2(0.5, 0.6) },
+    uBolt: { value: 0 },
+    uSeed: { value: 1 },
     uOct: { value: isMobile ? 2 : 4 },
   }), [isMobile]);
 
@@ -80,8 +90,12 @@ function Smoke({ isMobile }) {
     if (mesh.current) mesh.current.position.y = state.camera.position.y - 10; // kamerayı takip et (aşağı bakış açısını kapsa)
     const f = flash.current;
     if (t > f.next) {
-      f.v = 0.55 + Math.random() * 0.5;
-      f.pos.set(0.15 + Math.random() * 0.7, 0.3 + Math.random() * 0.55);
+      f.v = 0.85 + Math.random() * 0.6; // daha güçlü patlama (boyut shader'da sabit)
+      const isBolt = Math.random() < 0.38; // bazen: çok hafif gerçek şimşek çizgisi
+      f.bolt = isBolt ? 0.6 + Math.random() * 0.4 : 0;
+      f.seed = Math.random() * 10;
+      if (isBolt) f.pos.set(0.4 + Math.random() * 0.2, 0.5 + Math.random() * 0.12); // görünür pencerede
+      else f.pos.set(0.15 + Math.random() * 0.7, 0.3 + Math.random() * 0.55);
       f.next = t + 7 + Math.random() * 12; // nadiren
     }
     f.v = Math.max(0, f.v - delta * 2.4); // hızlı sönüm (çakma hissi)
@@ -89,6 +103,8 @@ function Smoke({ isMobile }) {
       mat.current.uniforms.uTime.value = t;
       mat.current.uniforms.uFlash.value = f.v;
       mat.current.uniforms.uFlashPos.value.copy(f.pos);
+      mat.current.uniforms.uBolt.value = f.v * f.bolt;
+      mat.current.uniforms.uSeed.value = f.seed;
     }
   });
 
@@ -117,10 +133,24 @@ function Scene({ progressRef, diveRef, onDiveComplete, onNodeClick, labelRefs, i
   const introStart = useRef(-1);
   const firedRef = useRef(-1);
 
-  const tube = useMemo(
-    () => new THREE.TubeGeometry(curve, isMobile ? 130 : 260, 0.055, 8, false),
-    [curve, isMobile]
-  );
+  const tube = useMemo(() => {
+    const g = new THREE.TubeGeometry(curve, isMobile ? 130 : 260, 0.055, 8, false);
+    // Vertex-color gradyan: tüp rengi y'ye göre düğüm renkleri arasında akıcı geçer
+    const pos = g.attributes.position;
+    const colors = new Float32Array(pos.count * 3);
+    const cols = NODES.map((n) => new THREE.Color(n.color));
+    const cTmp = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      const tt = THREE.MathUtils.clamp((H / 2 - pos.getY(i)) / H, 0, 1);
+      const f = tt * (cols.length - 1);
+      const a = Math.floor(f);
+      const b = Math.min(a + 1, cols.length - 1);
+      cTmp.copy(cols[a]).lerp(cols[b], f - a);
+      colors[i * 3] = cTmp.r; colors[i * 3 + 1] = cTmp.g; colors[i * 3 + 2] = cTmp.b;
+    }
+    g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    return g;
+  }, [curve, isMobile]);
   const nodePts = useMemo(
     () => NODES.map((n, i) => curve.getPoint(i / (NODES.length - 1))),
     [curve]
@@ -211,7 +241,7 @@ function Scene({ progressRef, diveRef, onDiveComplete, onNodeClick, labelRefs, i
       <Smoke isMobile={isMobile} />
       <group ref={groupRef}>
         <mesh geometry={tube}>
-          <meshBasicMaterial color="#8390d8" toneMapped={false} transparent opacity={0.9} />
+          <meshBasicMaterial vertexColors color="#ffffff" toneMapped={false} transparent opacity={0.9} />
         </mesh>
 
         {nodePts.map((pos, i) => (
