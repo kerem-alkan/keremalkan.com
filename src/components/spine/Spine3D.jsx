@@ -339,7 +339,7 @@ function Scene({ progressRef, diveRef, onDiveComplete, onNodeClick, labelRefs, s
       lookWant.set(0, H / 2 - 3 * e, 0);
       if (k >= 1) {
         introRef.current = false;
-        if (!reduce && strikeAtRef.current < 0) strikeAtRef.current = t + 2.0; // vuruş zamanı
+        if (!reduce && strikeAtRef.current < 0) strikeAtRef.current = t + 1.0; // vuruş zamanı
       }
     } else if (diving) {
       nodeRefs.current[dive.index].getWorldPosition(tmp);
