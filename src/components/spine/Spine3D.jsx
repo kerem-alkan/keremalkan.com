@@ -77,7 +77,7 @@ function Smoke({ isMobile }) {
 
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime;
-    if (mesh.current) mesh.current.position.y = state.camera.position.y; // kamerayı takip et
+    if (mesh.current) mesh.current.position.y = state.camera.position.y - 10; // kamerayı takip et (aşağı bakış açısını kapsa)
     const f = flash.current;
     if (t > f.next) {
       f.v = 0.55 + Math.random() * 0.5;
@@ -94,7 +94,7 @@ function Smoke({ isMobile }) {
 
   return (
     <mesh ref={mesh} position={[0, 0, -26]} frustumCulled={false} renderOrder={-1}>
-      <planeGeometry args={[160, 100]} />
+      <planeGeometry args={[220, 200]} />
       <shaderMaterial ref={mat} uniforms={uniforms} vertexShader={SMOKE_VERT} fragmentShader={SMOKE_FRAG}
         depthWrite={false} depthTest={false} />
     </mesh>
@@ -111,6 +111,8 @@ function Scene({ progressRef, diveRef, onDiveComplete, onNodeClick, labelRefs, i
   const tmp = useMemo(() => new THREE.Vector3(), []);
   const target = useMemo(() => new THREE.Vector3(), []);
   const proj = useMemo(() => new THREE.Vector3(), []);
+  const lookCur = useMemo(() => new THREE.Vector3(0, H / 2, 0), []);
+  const lookWant = useMemo(() => new THREE.Vector3(0, H / 2, 0), []);
   const introRef = useRef(!reduce);
   const introStart = useRef(-1);
   const firedRef = useRef(-1);
@@ -158,7 +160,7 @@ function Scene({ progressRef, diveRef, onDiveComplete, onNodeClick, labelRefs, i
       const k = Math.min((t - introStart.current) / 2.4, 1);
       const e = 1 - Math.pow(1 - k, 3);
       camera.position.set(0, H / 2 + 26 - e * 26, 46 - e * (46 - CAM_Z));
-      camera.lookAt(0, H / 2 - 7 * e, 0);
+      lookWant.set(0, H / 2 - 3 * e, 0);
       if (k >= 1) introRef.current = false;
     } else if (diving) {
       nodeRefs.current[dive.index].getWorldPosition(tmp);
@@ -166,7 +168,7 @@ function Scene({ progressRef, diveRef, onDiveComplete, onNodeClick, labelRefs, i
       camera.position.x = THREE.MathUtils.damp(camera.position.x, target.x, 3.4, d);
       camera.position.y = THREE.MathUtils.damp(camera.position.y, target.y, 3.4, d);
       camera.position.z = THREE.MathUtils.damp(camera.position.z, target.z, 3.4, d);
-      camera.lookAt(tmp);
+      lookWant.copy(tmp);
       if (firedRef.current !== dive.index && camera.position.distanceTo(target) < 0.22) {
         firedRef.current = dive.index;
         if (onDiveComplete) onDiveComplete(dive.index);
@@ -176,8 +178,13 @@ function Scene({ progressRef, diveRef, onDiveComplete, onNodeClick, labelRefs, i
       camera.position.x = THREE.MathUtils.damp(camera.position.x, 0, 2.5, d);
       camera.position.y = THREE.MathUtils.damp(camera.position.y, camY, 2.5, d);
       camera.position.z = THREE.MathUtils.damp(camera.position.z, CAM_Z, 2.5, d);
-      camera.lookAt(0, camY - 7, 0);
+      lookWant.set(0, camY - 3, 0); // -3: aktif düğüm merkeze yakın (eski -7 tepeye itiyordu)
     }
+    // Bakışı da damp'le — dalış başlarken/dönerken ani nişan sıçraması olmaz
+    lookCur.x = THREE.MathUtils.damp(lookCur.x, lookWant.x, 3.2, d);
+    lookCur.y = THREE.MathUtils.damp(lookCur.y, lookWant.y, 3.2, d);
+    lookCur.z = THREE.MathUtils.damp(lookCur.z, lookWant.z, 3.2, d);
+    camera.lookAt(lookCur);
 
     // FAZ D: DOM etiketlerini 3B düğümlere yapıştır (world → screen projeksiyon)
     if (labelRefs && labelRefs.current) {

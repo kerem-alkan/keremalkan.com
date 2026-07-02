@@ -3,17 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --bg: #f5f5f7;
-  --surface: #ffffff;
-  --ink: #1d1d1f;
-  --gray: #6e6e73;
-  --line: #d2d2d7;
-  --accent: #0066cc;
+  --bg: #06060b;
+  --surface: #0e0e18;
+  --ink: #f2f3f7;
+  --gray: #9a9bad;
+  --line: rgba(255, 255, 255, 0.12);
+  --accent: #4d8bff;
 }
 
 * { box-sizing: border-box; padding: 0; margin: 0; }
 
-html { scroll-behavior: smooth; }
+/* Lenis scrollTop'u her frame yazar; native smooth ile çakışıp sıçratır — auto şart */
+html { scroll-behavior: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
 
 body {
   background-color: var(--bg);
@@ -24,7 +26,7 @@ body {
 
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #c7c7cc; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #aeaeb2; }
+::-webkit-scrollbar-thumb { background: #2a2c3a; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3d50; }
 
-::selection { background: rgba(0, 102, 204, 0.18); }
+::selection { background: rgba(77, 139, 255, 0.28); }
